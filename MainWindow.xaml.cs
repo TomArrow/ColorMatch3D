@@ -15,6 +15,8 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using Microsoft.Win32;
+using System.Threading;
+using Be.IO;
 
 namespace ChannelMixMatcher
 {
@@ -41,7 +43,7 @@ namespace ChannelMixMatcher
         private void SelectTest_Click(object sender, win.RoutedEventArgs e)
         {
             OpenFileDialog ofd = new OpenFileDialog();
-            ofd.Filter = "PNG Files (.png)|*.png";
+            ofd.Filter = "Image Files (.png,.jpg,.jpeg,.tif,.tiff,.tga)|*.png;*.jpg;*.jpeg;*.tif;*.tiff;*.tga";
             if(ofd.ShowDialog() == true)
             {
                 string filename = ofd.FileName;
@@ -54,7 +56,7 @@ namespace ChannelMixMatcher
         private void SelectReference_Click(object sender, win.RoutedEventArgs e)
         {
             OpenFileDialog ofd = new OpenFileDialog();
-            ofd.Filter = "PNG Files (.png)|*.png";
+            ofd.Filter = "Image Files (.png,.jpg,.jpeg,.tif,.tiff,.tga)|*.png;*.jpg;*.jpeg;*.tif;*.tiff;*.tga";
             if (ofd.ShowDialog() == true)
             {
                 string filename = ofd.FileName;
@@ -68,6 +70,9 @@ namespace ChannelMixMatcher
             DoColorMatch();
         }
 
+        private Task ColorMatchTask;
+
+        
         // ColorMatch caller
         private async void DoColorMatch()
         {
@@ -78,7 +83,7 @@ namespace ChannelMixMatcher
                 return;
             }
 
-            float rangeMin, rangeMax, sliderRangeMin, sliderRangeMax, precision;
+            float rangeMin, rangeMax, sliderRangeMin, sliderRangeMax, precision, workGamma, testGamma, refGamma;
             int subdiv, resX, resY;
 
             try
@@ -88,6 +93,9 @@ namespace ChannelMixMatcher
                 sliderRangeMin = float.Parse(ChannelMixSliderFrom_txt.Text);
                 sliderRangeMax = float.Parse(ChannelMixSliderTo_txt.Text);
                 precision = float.Parse(Precision_txt.Text);
+                workGamma = float.Parse(WorkGamma_txt.Text);
+                testGamma = float.Parse(TestImageGamma_txt.Text);
+                refGamma = float.Parse(ReferenceImageGamma_txt.Text);
                 subdiv = int.Parse(Subdiv_txt.Text);
                 resX = int.Parse(MatchResX_txt.Text);
                 resY = int.Parse(MatchResY_txt.Text);
@@ -104,18 +112,18 @@ namespace ChannelMixMatcher
             {
                 setStatus(update.message,update.error);
                 // Update matrix
-                if(update.best_matrix != null)
-                {
-                    RegradeImage(update.best_matrix);
-                    SetSlidersToMatrix(update.best_matrix);
-                }
-                if(update.matching_range != null)
+                if (update.matching_range != null)
                 {
                     SetSliderRanges(update.matching_range);
                 }
+                if (update.best_matrix != null)
+                {
+                    SetSlidersToMatrix(update.best_matrix);
+                    RegradeImage(update.best_matrix);
+                }
             });
-            Task.Run(() => DoColorMatch_Worker(progress,rangeMin,rangeMax,sliderRangeMin,sliderRangeMax,precision,subdiv,resX,resY,testImage,referenceImage));
-            setStatus("test");
+            ColorMatchTask = Task.Run(() => DoColorMatch_Worker(progress,rangeMin,rangeMax,sliderRangeMin,sliderRangeMax,precision,workGamma,testGamma,refGamma,subdiv,resX,resY,testImage,referenceImage));
+            setStatus("Started...");
         }
 
         private void SetSliderRanges(float[,] ranges)
@@ -162,30 +170,56 @@ namespace ChannelMixMatcher
             slide_BtoB.Value = matrix[2, 2];
         }
 
-        private void RegradeImage(float[,] matrix)
+
+        private CancellationTokenSource _cancelRegrade = new CancellationTokenSource();
+
+        private async void  RegradeImage(float[,] matrix)
+        {
+            _cancelRegrade.Cancel();
+
+            _cancelRegrade = new CancellationTokenSource();
+            CancellationToken token = _cancelRegrade.Token;
+            try
+            {
+                BitmapSource result = await Task.Run(() => DoRegrade_Worker(matrix, new Bitmap(testImage), token));
+                    ImageTop.Source = result;
+            }
+            catch (OperationCanceledException)
+            {
+                //Nothing
+            }
+            
+        }
+
+        private BitmapSource DoRegrade_Worker(float[,] matrix, Bitmap testImage,CancellationToken token)
         {
             regradedImage = new Bitmap(testImage);
             int width = regradedImage.Width;
             int height = regradedImage.Height;
 
             float[] regradedImgData = new float[3];
-            for(int x = 0; x < width; x++)
+            for (int x = 0; x < width; x++)
             {
                 for (int y = 0; y < height; y++)
                 {
+                    token.ThrowIfCancellationRequested();
                     Color pixelColor = regradedImage.GetPixel(x, y);
-                    regradedImgData[R] = Math.Max(0, Math.Min(255,pixelColor.R * matrix[0, 0] + pixelColor.G * matrix[0, 1] + pixelColor.B * matrix[0, 2]));
+                    regradedImgData[R] = Math.Max(0, Math.Min(255, pixelColor.R * matrix[0, 0] + pixelColor.G * matrix[0, 1] + pixelColor.B * matrix[0, 2]));
                     regradedImgData[G] = Math.Max(0, Math.Min(255, pixelColor.R * matrix[1, 0] + pixelColor.G * matrix[1, 1] + pixelColor.B * matrix[1, 2]));
                     regradedImgData[B] = Math.Max(0, Math.Min(255, pixelColor.R * matrix[2, 0] + pixelColor.G * matrix[2, 1] + pixelColor.B * matrix[2, 2]));
-                    regradedImage.SetPixel(x, y, Color.FromArgb(255,(int)regradedImgData[R], (int)regradedImgData[G], (int)regradedImgData[B]));
+                    regradedImage.SetPixel(x, y, Color.FromArgb(255, (int)regradedImgData[R], (int)regradedImgData[G], (int)regradedImgData[B]));
                 }
             }
-            ImageTop.Source = Helpers.BitmapToImageSource(regradedImage);
+            token.ThrowIfCancellationRequested();
+            BitmapSource result = Helpers.BitmapToImageSource(regradedImage);
+            token.ThrowIfCancellationRequested();
+            result.Freeze();
+            return result;
         }
 
 
         // The actual colormatching.
-        private async void  DoColorMatch_Worker(IProgress<MatchReport> progress, float rangeMin, float rangeMax, float sliderRangeMin, float sliderRangeMax, float precision, int subdiv, int resX, int resY, Bitmap testImage, Bitmap referenceImage)
+        private void DoColorMatch_Worker(IProgress<MatchReport> progress, float rangeMin, float rangeMax, float sliderRangeMin, float sliderRangeMax, float precision, float workGamma, float testGamma, float refGamma, int subdiv, int resX, int resY, Bitmap testImage, Bitmap referenceImage)
         {
             
 
@@ -209,7 +243,7 @@ namespace ChannelMixMatcher
                     testImgData[x, y, G] = testPixel.G;
                     testImgData[x, y, B] = testPixel.B;
 
-                    Color referencePixel = resizedTestImage.GetPixel(x, y);
+                    Color referencePixel = resizedReferenceImage.GetPixel(x, y);
                     refImgData[x, y, R] = referencePixel.R;
                     refImgData[x, y, G] = referencePixel.G;
                     refImgData[x, y, B] = referencePixel.B;
@@ -218,7 +252,7 @@ namespace ChannelMixMatcher
 
             // Step Size for individual sliders
             float stepSize = (rangeMax - rangeMin)/subdiv;
-
+            float stepSizeNext = stepSize;
 
 
             // Nest all sliders (this is where it gets computationally intensive very quick.
@@ -228,28 +262,33 @@ namespace ChannelMixMatcher
             float[] testMatrixed = new float[3];
             float multiplier,multiplierRef;
             float average_diff;
-            float best_average_diff = 255;
+            double best_average_diff = 10000000;
             float[,] current_matrix = new float[3, 3] { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
             float[,] best_matrix = new float[3, 3] { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
+            float[,] matchRanges = new float[9, 2] {
+                        { rangeMin, rangeMax},
+                        { rangeMin, rangeMax },
+                        { rangeMin, rangeMax },
+                        { rangeMin, rangeMax },
+                        { rangeMin, rangeMax },
+                        { rangeMin, rangeMax },
+                        { rangeMin, rangeMax },
+                        { rangeMin, rangeMax },
+                        { rangeMin, rangeMax } };
 
             int iteration = 0;
-            while (stepSize > precision && iteration == 0)
+            while (stepSize > precision)
             {
+                stepSize = stepSizeNext;
+
                 progress.Report(new MatchReport(
                     "Colormatching... iteration "+(iteration+1).ToString()+", stepSize "+stepSize.ToString()+", desired precision "+precision.ToString(),
                     false,
                     null,
-                    new float[9, 2] { 
-                        { rangeMin, rangeMax}, 
-                        { rangeMin, rangeMax }, 
-                        { rangeMin, rangeMax }, 
-                        { rangeMin, rangeMax }, 
-                        { rangeMin, rangeMax }, 
-                        { rangeMin, rangeMax }, 
-                        { rangeMin, rangeMax }, 
-                        { rangeMin, rangeMax }, 
-                        { rangeMin, rangeMax } }
+                    matchRanges
                     ));
+
+                bool update_matrix = false;
 
                 for (int iRtoR = 0; iRtoR < subdiv; iRtoR++)
                 {
@@ -275,24 +314,28 @@ namespace ChannelMixMatcher
 
                                                     // Calculate matrix
                                                     current_matrix = new float[3, 3] {
-                                                    { iRtoR*stepSize+rangeMin, iGtoR*stepSize+rangeMin, iBtoR*stepSize+rangeMin },
-                                                    { iRtoG*stepSize+rangeMin, iGtoG*stepSize+rangeMin, iBtoG*stepSize+rangeMin },
-                                                    { iRtoB*stepSize+rangeMin, iGtoB*stepSize+rangeMin, iBtoB*stepSize+rangeMin } };
+                                                    { iRtoR*stepSize+matchRanges[0,0], iGtoR*stepSize+matchRanges[1,0], iBtoR*stepSize+matchRanges[2,0] },
+                                                    { iRtoG*stepSize+matchRanges[3,0], iGtoG*stepSize+matchRanges[4,0], iBtoG*stepSize+matchRanges[5,0] },
+                                                    { iRtoB*stepSize+matchRanges[6,0], iGtoB*stepSize+matchRanges[7,0], iBtoB*stepSize+matchRanges[8,0] } };
                                                     for (var x = 0; x < resX; x++)
                                                     {
                                                         for (var y = 0; y < resX; y++)
                                                         {
 
+                                                            count++;
+
                                                             // Apply matrix
-                                                            testMatrixed[R] = testImgData[x, y, R] * current_matrix[0, 0] + testImgData[x, y, G] * current_matrix[0, 1] + testImgData[x, y, B] * current_matrix[0, 2];
-                                                            testMatrixed[G] = testImgData[x, y, R] * current_matrix[1, 0] + testImgData[x, y, G] * current_matrix[1, 1] + testImgData[x, y, B] * current_matrix[1, 2];
-                                                            testMatrixed[B] = testImgData[x, y, R] * current_matrix[2, 0] + testImgData[x, y, G] * current_matrix[2, 1] + testImgData[x, y, B] * current_matrix[2, 2];
+                                                            testMatrixed[R] = Math.Max(0, testImgData[x, y, R] * current_matrix[0, 0] + testImgData[x, y, G] * current_matrix[0, 1] + testImgData[x, y, B] * current_matrix[0, 2]);
+                                                            testMatrixed[G] = Math.Max(0, testImgData[x, y, R] * current_matrix[1, 0] + testImgData[x, y, G] * current_matrix[1, 1] + testImgData[x, y, B] * current_matrix[1, 2]);
+                                                            testMatrixed[B] = Math.Max(0, testImgData[x, y, R] * current_matrix[2, 0] + testImgData[x, y, G] * current_matrix[2, 1] + testImgData[x, y, B] * current_matrix[2, 2]);
+
 
                                                             // Normalize test img. We want only the absolute relations of colors.
                                                             // Find channel with highest value, set it to 255, then scale otehr channels accordingly
                                                             // 
                                                             if (testMatrixed[R] >= testMatrixed[G] && testMatrixed[R] >= testMatrixed[B])
                                                             {
+                                                                if (testMatrixed[R] == 0 || refImgData[x, y, R] == 0) continue;
                                                                 multiplier = 255f / (float)testMatrixed[R];
                                                                 multiplierRef = 255f / (float)refImgData[x, y, R];
                                                                 testColor[R] = 255;
@@ -304,7 +347,7 @@ namespace ChannelMixMatcher
                                                             }
                                                             else if (testMatrixed[G] >= testMatrixed[R] && testMatrixed[G] >= testMatrixed[B])
                                                             {
-
+                                                                if (testMatrixed[G] == 0 || refImgData[x, y, G] == 0) continue;
                                                                 multiplier = 255f / (float)testMatrixed[G];
                                                                 multiplierRef = 255f / (float)refImgData[x, y, G];
                                                                 testColor[R] = multiplier * testMatrixed[R];
@@ -316,21 +359,20 @@ namespace ChannelMixMatcher
                                                             }
                                                             else if (testMatrixed[B] >= testMatrixed[R] && testMatrixed[B] >= testMatrixed[G])
                                                             {
-
+                                                                if (testMatrixed[B] == 0 || refImgData[x, y, B] == 0) continue;
                                                                 multiplier = 255f / (float)testMatrixed[B];
                                                                 multiplierRef = 255f / (float)refImgData[x, y, B];
                                                                 testColor[R] = multiplier * testMatrixed[R];
                                                                 testColor[G] = multiplier * testMatrixed[G];
                                                                 testColor[B] = 255;
-                                                                refColor[R] = multiplier * refImgData[x, y, R];
-                                                                refColor[G] = multiplier * refImgData[x, y, G];
+                                                                refColor[R] = multiplierRef * refImgData[x, y, R];
+                                                                refColor[G] = multiplierRef * refImgData[x, y, G];
                                                                 refColor[B] = 255;
                                                             }
 
                                                             total_diff += Math.Abs(testColor[R] - refColor[R]) + Math.Abs(testColor[G] - refColor[G]) + Math.Abs(testColor[B] - refColor[B]);
                                                             count_diff++;
 
-                                                            count++;
                                                         }
                                                     }
                                                     // Calculate average diff for this particular matrix
@@ -341,20 +383,35 @@ namespace ChannelMixMatcher
                                                     {
                                                         best_average_diff = average_diff;
                                                         best_matrix = current_matrix;
-                                                        progress.Report(new MatchReport(count.ToString("#,##0") + ", best average diff: " + best_average_diff.ToString(), false, current_matrix));
+                                                        update_matrix = true;
+                                                        //progress.Report(new MatchReport(count.ToString("#,##0") + ", best average diff: " + best_average_diff.ToString(), false, current_matrix));
                                                     }
                                                 }
                                             }
                                         }
                                     }
                                 }
-                                progress.Report(new MatchReport(count.ToString("#,##0") + ", best average diff: " + best_average_diff.ToString())); // Can't put it further in or it won't update at all. Dunno why. It gets called, but doesn't update UI. PC freezes tho, maybe performance/priority problem?
-
+                                progress.Report(new MatchReport(count.ToString("#,##0") + ", best average diff: " + best_average_diff.ToString(),false,update_matrix ? best_matrix : null)); // Can't put it further in or it won't update at all. Dunno why. It gets called, but doesn't update UI. PC freezes tho, maybe performance/priority problem?
+                                update_matrix = false;
                             }
                         }
                     }
                 }
                 iteration++;
+
+                // For each new iteration, the current best_matrix +- current stepsize will be used, and that range again divided by subdiv.
+                matchRanges = new float[9, 2] {
+                        { best_matrix[0,0]-stepSize, best_matrix[0,0]+stepSize},
+                        { best_matrix[0,1]-stepSize, best_matrix[0,1]+stepSize},
+                        { best_matrix[0,2]-stepSize, best_matrix[0,2]+stepSize},
+                        { best_matrix[1,0]-stepSize, best_matrix[1,0]+stepSize},
+                        { best_matrix[1,1]-stepSize, best_matrix[1,1]+stepSize},
+                        { best_matrix[1,2]-stepSize, best_matrix[1,2]+stepSize},
+                        { best_matrix[2,0]-stepSize, best_matrix[2,0]+stepSize},
+                        { best_matrix[2,1]-stepSize, best_matrix[2,1]+stepSize},
+                        { best_matrix[2,2]-stepSize, best_matrix[2,2]+stepSize}};
+
+                stepSizeNext = stepSize * 2 / subdiv;
             }
 
             progress.Report(new MatchReport(count.ToString("#,##0") + ", best average diff: " + best_average_diff.ToString()));
@@ -413,6 +470,129 @@ namespace ChannelMixMatcher
             }
         }
 
-        
+        private void BtnLoadCHA_Click(object sender, win.RoutedEventArgs e)
+        {
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.Filter = "Photoshop RGB Channel Mixer Preset (.cha)|*.cha";
+
+            float[,] PSmatrix = new float[3,3];
+            int[] useless = new int[3]; // I think these are for CMYK
+            int[] constant = new int[3];
+
+            if (ofd.ShowDialog() == true)
+            {
+                string filename = ofd.FileName;
+                using(FileStream fs = File.Open(filename, FileMode.Open))
+                {
+
+                    using (BeBinaryReader binReader = new BeBinaryReader(fs))
+                    {
+                        
+                        uint version = binReader.ReadUInt16();
+                        uint monochrome = binReader.ReadUInt16();
+                        PSmatrix[0, 0] = binReader.ReadInt16() / 100f;
+                        PSmatrix[0, 1] = binReader.ReadInt16() / 100f;
+                        PSmatrix[0, 2] = binReader.ReadInt16() / 100f;
+                        useless[0] = binReader.ReadInt16();
+                        constant[0] = binReader.ReadInt16();
+                        PSmatrix[1, 0] = binReader.ReadInt16() / 100f;
+                        PSmatrix[1, 1] = binReader.ReadInt16() / 100f;
+                        PSmatrix[1, 2] = binReader.ReadInt16() / 100f;
+                        useless[1] = binReader.ReadInt16();
+                        constant[1] = binReader.ReadInt16();
+                        PSmatrix[2, 0] = binReader.ReadInt16() / 100f;
+                        PSmatrix[2, 1] = binReader.ReadInt16() / 100f;
+                        PSmatrix[2, 2] = binReader.ReadInt16() / 100f;
+                        useless[2] = binReader.ReadInt16();
+                        constant[2] = binReader.ReadInt16();
+
+                    }
+                }
+            }
+
+            setStatus(Helpers.matrixToString<float>(PSmatrix));
+        }
+
+        private float[,] slidersToMatrix()
+        {
+            return new float[3, 3]
+            {
+                {(float)slide_RtoR.Value,(float)slide_GtoR.Value,(float)slide_BtoR.Value},
+                {(float)slide_RtoG.Value,(float)slide_GtoG.Value,(float)slide_BtoG.Value },
+                {(float)slide_RtoB.Value,(float)slide_GtoB.Value,(float)slide_BtoB.Value }
+            };
+        }
+
+        private void BtnSaveCHA_Click(object sender, win.RoutedEventArgs e)
+        {
+            SaveFileDialog sfd = new SaveFileDialog();
+            sfd.Filter = "Photoshop RGB Channel Mixer Preset (.cha)|*.cha";
+
+            float[,] sliderMatrix = slidersToMatrix();
+
+
+            // Check if any values are outside Photoshops -2 to 2 scope. (PS won't read a file if it's outside the scope)
+            for(int i = 0; i<3; i++)
+            {
+                for(int ii = 0; ii < 3; i++)
+                {
+                    if (sliderMatrix[i,ii] < -2 || sliderMatrix[i, ii]  > 2)
+                    {
+                        if (win.MessageBox.Show("Photoshop's Channel Mixer only supports values between -2 and 2 (-200% to 200%). Your current settings exceed those values. If you continue, those values will be clipped. Continue?","Attention!", win.MessageBoxButton.YesNo) == win.MessageBoxResult.Yes)
+                        {
+                            return;
+                        } else
+                        {
+                            // Do clip the values, go!
+                            goto FuckBeingElegant; // I didn't want to do this, C#, but you leave me no other choice. In PHP I could have written break 2;
+                        }
+                    }
+                }
+            }
+
+
+FuckBeingElegant:
+
+            if (sfd.ShowDialog() == true)
+            {
+                string filename = sfd.FileName;
+                using (FileStream fs = File.Open(filename, FileMode.Create))
+                {
+
+                    using (BeBinaryWriter binWriter = new BeBinaryWriter(fs))
+                    {
+
+                        binWriter.Write((short)1);//Version
+                        binWriter.Write((short)0);//Monochrome
+                        binWriter.Write((short)Math.Max(-200, Math.Min(200,sliderMatrix[0,0]*100)));
+                        binWriter.Write((short)Math.Max(-200, Math.Min(200, sliderMatrix[0,1]*100)));
+                        binWriter.Write((short)Math.Max(-200, Math.Min(200, sliderMatrix[0,2]*100)));
+                        binWriter.Write((short)0); //Useless (CMYK?)
+                        binWriter.Write((short)0); //Constant
+                        binWriter.Write((short)Math.Max(-200, Math.Min(200, sliderMatrix[1, 0] * 100)));
+                        binWriter.Write((short)Math.Max(-200, Math.Min(200, sliderMatrix[1, 1] * 100)));
+                        binWriter.Write((short)Math.Max(-200, Math.Min(200, sliderMatrix[1, 2] * 100)));
+                        binWriter.Write((short)0); //Useless (CMYK?)
+                        binWriter.Write((short)0); //Constant
+                        binWriter.Write((short)Math.Max(-200, Math.Min(200, sliderMatrix[2, 0] * 100)));
+                        binWriter.Write((short)Math.Max(-200, Math.Min(200, sliderMatrix[2, 1] * 100)));
+                        binWriter.Write((short)Math.Max(-200, Math.Min(200, sliderMatrix[2, 2] * 100)));
+                        binWriter.Write((short)0); //Useless (CMYK?)
+                        binWriter.Write((short)0); //Constant
+
+                        // No idea what the next values mean, but they are necessary apparently:
+                        binWriter.Write((short)0);
+                        binWriter.Write((short)0);
+                        binWriter.Write((short)0);
+                        binWriter.Write((short)100);
+                        binWriter.Write((short)0);
+
+
+                    }
+                }
+                setStatus("Slider values were written into " + filename + ": " + Helpers.matrixToString<float>(sliderMatrix));
+            }
+
+        }
     }
 }

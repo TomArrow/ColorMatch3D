@@ -27,5 +27,10 @@ namespace ChannelMixMatcher
                 return bitmapimage;
             }
         }
+
+        static public string matrixToString<T>(T[,] matrix)
+        {
+            return "{{" + matrix[0, 0].ToString() + "," + matrix[0, 1].ToString() + "," + matrix[0, 2].ToString() + "},{" + matrix[1, 0].ToString() + "," + matrix[1, 1].ToString() + "," + matrix[1, 2].ToString() + "},{" + matrix[2, 0].ToString() + "," + matrix[2, 1].ToString() + "," + matrix[2, 2].ToString() + "}}";
+        }
     }
 }
