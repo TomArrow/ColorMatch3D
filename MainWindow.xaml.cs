@@ -39,6 +39,8 @@ namespace ChannelMixMatcher
         private Bitmap regradedImage = null;
         private Bitmap referenceImage = null;
 
+        float displayGamma = 2.2f;
+
         // Select test image
         private void SelectTest_Click(object sender, win.RoutedEventArgs e)
         {
@@ -179,9 +181,24 @@ namespace ChannelMixMatcher
 
             _cancelRegrade = new CancellationTokenSource();
             CancellationToken token = _cancelRegrade.Token;
+
+            float workGamma, testGamma;
             try
             {
-                BitmapSource result = await Task.Run(() => DoRegrade_Worker(matrix, new Bitmap(testImage), token));
+                workGamma = float.Parse(WorkGamma_txt.Text);
+                testGamma = float.Parse(TestImageGamma_txt.Text);
+
+            }
+            catch (Exception blah)
+            {
+
+                setStatus("Make sure you only entered valid numbers.", true);
+                return;
+            }
+
+            try
+            {
+                BitmapSource result = await Task.Run(() => DoRegrade_Worker(matrix, testGamma, workGamma, new Bitmap(testImage), token));
                     ImageTop.Source = result;
             }
             catch (OperationCanceledException)
@@ -191,9 +208,9 @@ namespace ChannelMixMatcher
             
         }
 
-        private BitmapSource DoRegrade_Worker(float[,] matrix, Bitmap testImage,CancellationToken token)
+        private BitmapSource DoRegrade_Worker(float[,] matrix, float testGamma, float workGamma, Bitmap testImage,CancellationToken token)
         {
-            regradedImage = new Bitmap(testImage);
+            Bitmap regradedImage = new Bitmap(testImage);
             int width = regradedImage.Width;
             int height = regradedImage.Height;
 
@@ -204,10 +221,20 @@ namespace ChannelMixMatcher
                 {
                     token.ThrowIfCancellationRequested();
                     Color pixelColor = regradedImage.GetPixel(x, y);
-                    regradedImgData[R] = Math.Max(0, Math.Min(255, pixelColor.R * matrix[0, 0] + pixelColor.G * matrix[0, 1] + pixelColor.B * matrix[0, 2]));
-                    regradedImgData[G] = Math.Max(0, Math.Min(255, pixelColor.R * matrix[1, 0] + pixelColor.G * matrix[1, 1] + pixelColor.B * matrix[1, 2]));
-                    regradedImgData[B] = Math.Max(0, Math.Min(255, pixelColor.R * matrix[2, 0] + pixelColor.G * matrix[2, 1] + pixelColor.B * matrix[2, 2]));
-                    regradedImage.SetPixel(x, y, Color.FromArgb(255, (int)regradedImgData[R], (int)regradedImgData[G], (int)regradedImgData[B]));
+
+                    float[] workGammaPixel = new float[3]{
+                        (float)(255 * Math.Pow((pixelColor.R / 255d), testGamma / workGamma)),
+                        (float)(255 * Math.Pow((pixelColor.G / 255d), testGamma / workGamma)),
+                        (float)(255 * Math.Pow((pixelColor.B / 255d), testGamma / workGamma))
+                    };
+
+                    regradedImgData[R] = Math.Max(0, Math.Min(255, workGammaPixel[R] * matrix[0, 0] + workGammaPixel[G] * matrix[0, 1] + workGammaPixel[B] * matrix[0, 2]));
+                    regradedImgData[G] = Math.Max(0, Math.Min(255, workGammaPixel[R] * matrix[1, 0] + workGammaPixel[G] * matrix[1, 1] + workGammaPixel[B] * matrix[1, 2]));
+                    regradedImgData[B] = Math.Max(0, Math.Min(255, workGammaPixel[R] * matrix[2, 0] + workGammaPixel[G] * matrix[2, 1] + workGammaPixel[B] * matrix[2, 2]));
+                    regradedImage.SetPixel(x, y, Color.FromArgb(255, 
+                        (int)(Math.Pow(regradedImgData[R] / 255d, workGamma / displayGamma) * 255), 
+                        (int)(Math.Pow(regradedImgData[G] / 255d, workGamma / displayGamma) * 255), 
+                        (int)(Math.Pow(regradedImgData[B] / 255d, workGamma / displayGamma) * 255)));
                 }
             }
             token.ThrowIfCancellationRequested();
@@ -230,8 +257,8 @@ namespace ChannelMixMatcher
             Bitmap resizedTestImage = new Bitmap(testImage,new Size(resX,resY));
             Bitmap resizedReferenceImage = new Bitmap(referenceImage,new Size(resX,resY));
             
-            int[,,] testImgData = new int[resX, resY, 3];
-            int[,,] refImgData = new int[resX, resY, 3];
+            float[,,] testImgData = new float[resX, resY, 3];
+            float[,,] refImgData = new float[resX, resY, 3];
 
             // Convert images into arrays for faster access (hopefully)
             for(var x = 0; x < resX; x++)
@@ -239,14 +266,14 @@ namespace ChannelMixMatcher
                 for (var y = 0; y < resX; y++)
                 {
                     Color testPixel = resizedTestImage.GetPixel(x, y);
-                    testImgData[x, y, R] = testPixel.R;
-                    testImgData[x, y, G] = testPixel.G;
-                    testImgData[x, y, B] = testPixel.B;
+                    testImgData[x, y, R] = (float)(255*Math.Pow(((double)testPixel.R / 255d), testGamma/workGamma));
+                    testImgData[x, y, G] = (float)(255*Math.Pow(((double)testPixel.G / 255d), testGamma/workGamma));
+                    testImgData[x, y, B] = (float)(255*Math.Pow(((double)testPixel.B / 255d), testGamma/workGamma));
 
                     Color referencePixel = resizedReferenceImage.GetPixel(x, y);
-                    refImgData[x, y, R] = referencePixel.R;
-                    refImgData[x, y, G] = referencePixel.G;
-                    refImgData[x, y, B] = referencePixel.B;
+                    refImgData[x, y, R] = (float)(255*Math.Pow(((double)referencePixel.R / 255d), refGamma/workGamma));
+                    refImgData[x, y, G] = (float)(255*Math.Pow(((double)referencePixel.G / 255d), refGamma/workGamma));
+                    refImgData[x, y, B] = (float)(255*Math.Pow(((double)referencePixel.B / 255d), refGamma/workGamma));
                 }
             }
 
@@ -534,7 +561,7 @@ namespace ChannelMixMatcher
             // Check if any values are outside Photoshops -2 to 2 scope. (PS won't read a file if it's outside the scope)
             for(int i = 0; i<3; i++)
             {
-                for(int ii = 0; ii < 3; i++)
+                for(int ii = 0; ii < 3; ii++)
                 {
                     if (sliderMatrix[i,ii] < -2 || sliderMatrix[i, ii]  > 2)
                     {
