@@ -352,53 +352,61 @@ namespace ChannelMixMatcher
                                                             count++;
 
                                                             // Apply matrix
-                                                            testMatrixed[R] = Math.Max(0, testImgData[x, y, R] * current_matrix[0, 0] + testImgData[x, y, G] * current_matrix[0, 1] + testImgData[x, y, B] * current_matrix[0, 2]);
-                                                            testMatrixed[G] = Math.Max(0, testImgData[x, y, R] * current_matrix[1, 0] + testImgData[x, y, G] * current_matrix[1, 1] + testImgData[x, y, B] * current_matrix[1, 2]);
-                                                            testMatrixed[B] = Math.Max(0, testImgData[x, y, R] * current_matrix[2, 0] + testImgData[x, y, G] * current_matrix[2, 1] + testImgData[x, y, B] * current_matrix[2, 2]);
+                                                            testMatrixed[R] = testImgData[x, y, R] * current_matrix[0, 0] + testImgData[x, y, G] * current_matrix[0, 1] + testImgData[x, y, B] * current_matrix[0, 2];
+                                                            testMatrixed[G] = testImgData[x, y, R] * current_matrix[1, 0] + testImgData[x, y, G] * current_matrix[1, 1] + testImgData[x, y, B] * current_matrix[1, 2];
+                                                            testMatrixed[B] = testImgData[x, y, R] * current_matrix[2, 0] + testImgData[x, y, G] * current_matrix[2, 1] + testImgData[x, y, B] * current_matrix[2, 2];
 
 
                                                             // Normalize test img. We want only the absolute relations of colors.
                                                             // Find channel with highest value, set it to 255, then scale otehr channels accordingly
                                                             // 
-                                                            if (testMatrixed[R] >= testMatrixed[G] && testMatrixed[R] >= testMatrixed[B])
+                                                            if (testMatrixed[R] == 0 && testMatrixed[G] == 0 && testMatrixed[B] == 0)
                                                             {
-                                                                if (testMatrixed[R] == 0 || refImgData[x, y, R] == 0) continue;
-                                                                multiplier = 255f / (float)testMatrixed[R];
-                                                                multiplierRef = 255f / (float)refImgData[x, y, R];
-                                                                testColor[R] = 255;
-                                                                testColor[G] = multiplier * testMatrixed[G];
-                                                                testColor[B] = multiplier * testMatrixed[B];
-                                                                refColor[R] = 255;
-                                                                refColor[G] = multiplierRef * refImgData[x, y, G];
-                                                                refColor[B] = multiplierRef * refImgData[x, y, B];
+                                                                //this is useless because we can't normalize it
+                                                                continue;
                                                             }
-                                                            else if (testMatrixed[G] >= testMatrixed[R] && testMatrixed[G] >= testMatrixed[B])
-                                                            {
-                                                                if (testMatrixed[G] == 0 || refImgData[x, y, G] == 0) continue;
-                                                                multiplier = 255f / (float)testMatrixed[G];
-                                                                multiplierRef = 255f / (float)refImgData[x, y, G];
-                                                                testColor[R] = multiplier * testMatrixed[R];
-                                                                testColor[G] = 255;
-                                                                testColor[B] = multiplier * testMatrixed[B];
-                                                                refColor[R] = multiplierRef * refImgData[x, y, R];
-                                                                refColor[G] = 255;
-                                                                refColor[B] = multiplierRef * refImgData[x, y, B];
-                                                            }
-                                                            else if (testMatrixed[B] >= testMatrixed[R] && testMatrixed[B] >= testMatrixed[G])
-                                                            {
-                                                                if (testMatrixed[B] == 0 || refImgData[x, y, B] == 0) continue;
-                                                                multiplier = 255f / (float)testMatrixed[B];
-                                                                multiplierRef = 255f / (float)refImgData[x, y, B];
-                                                                testColor[R] = multiplier * testMatrixed[R];
-                                                                testColor[G] = multiplier * testMatrixed[G];
-                                                                testColor[B] = 255;
-                                                                refColor[R] = multiplierRef * refImgData[x, y, R];
-                                                                refColor[G] = multiplierRef * refImgData[x, y, G];
-                                                                refColor[B] = 255;
+                                                            else { 
+
+                                                                if (Math.Abs(testMatrixed[R]) >= Math.Abs(testMatrixed[G]) && Math.Abs(testMatrixed[R]) >= Math.Abs(testMatrixed[B]))
+                                                                {
+                                                                    //if (testMatrixed[R] == 0 || refImgData[x, y, R] == 0) continue;
+                                                                    multiplier = Math.Abs(255f / (float)testMatrixed[R]);
+                                                                    multiplierRef = Math.Abs(255f / (float)refImgData[x, y, R]);
+                                                                    testColor[R] = 255;
+                                                                    testColor[G] = multiplier * testMatrixed[G];
+                                                                    testColor[B] = multiplier * testMatrixed[B];
+                                                                    refColor[R] = 255;
+                                                                    refColor[G] = multiplierRef * refImgData[x, y, G];
+                                                                    refColor[B] = multiplierRef * refImgData[x, y, B];
+                                                                }
+                                                                else if (Math.Abs(testMatrixed[G]) >= Math.Abs(testMatrixed[R]) && Math.Abs(testMatrixed[G]) >= Math.Abs(testMatrixed[B]))
+                                                                {
+                                                                    //if (testMatrixed[G] == 0 || refImgData[x, y, G] == 0) continue;
+                                                                    multiplier = Math.Abs(255f / (float)testMatrixed[G]);
+                                                                    multiplierRef = Math.Abs(255f / (float)refImgData[x, y, G]);
+                                                                    testColor[R] = multiplier * testMatrixed[R];
+                                                                    testColor[G] = 255;
+                                                                    testColor[B] = multiplier * testMatrixed[B];
+                                                                    refColor[R] = multiplierRef * refImgData[x, y, R];
+                                                                    refColor[G] = 255;
+                                                                    refColor[B] = multiplierRef * refImgData[x, y, B];
+                                                                }
+                                                                else if (Math.Abs(testMatrixed[B]) >= Math.Abs(testMatrixed[R]) && Math.Abs(testMatrixed[B]) >= Math.Abs(testMatrixed[G]))
+                                                                {
+                                                                    //if (testMatrixed[B] == 0 || refImgData[x, y, B] == 0) continue;
+                                                                    multiplier = Math.Abs(255f / (float)testMatrixed[B]);
+                                                                    multiplierRef = Math.Abs(255f / (float)refImgData[x, y, B]);
+                                                                    testColor[R] = multiplier * testMatrixed[R];
+                                                                    testColor[G] = multiplier * testMatrixed[G];
+                                                                    testColor[B] = 255;
+                                                                    refColor[R] = multiplierRef * refImgData[x, y, R];
+                                                                    refColor[G] = multiplierRef * refImgData[x, y, G];
+                                                                    refColor[B] = 255;
+                                                                }
+                                                                total_diff += Math.Abs(testColor[R] - refColor[R]) + Math.Abs(testColor[G] - refColor[G]) + Math.Abs(testColor[B] - refColor[B]);
+                                                                count_diff++;
                                                             }
 
-                                                            total_diff += Math.Abs(testColor[R] - refColor[R]) + Math.Abs(testColor[G] - refColor[G]) + Math.Abs(testColor[B] - refColor[B]);
-                                                            count_diff++;
 
                                                         }
                                                     }
@@ -565,7 +573,7 @@ namespace ChannelMixMatcher
                 {
                     if (sliderMatrix[i,ii] < -2 || sliderMatrix[i, ii]  > 2)
                     {
-                        if (win.MessageBox.Show("Photoshop's Channel Mixer only supports values between -2 and 2 (-200% to 200%). Your current settings exceed those values. If you continue, those values will be clipped. Continue?","Attention!", win.MessageBoxButton.YesNo) == win.MessageBoxResult.Yes)
+                        if (win.MessageBox.Show("Photoshop's Channel Mixer only supports values between -2 and 2 (-200% to 200%). Your current settings exceed those values. If you continue, those values will be clipped. Continue?","Attention!", win.MessageBoxButton.YesNo) != win.MessageBoxResult.Yes)
                         {
                             return;
                         } else
