@@ -160,11 +160,6 @@
                             <Slider Name="slide_BtoB" Value="1" Maximum="{Binding ElementName=ChannelMixSliderTo_txt,Path=Text}" Minimum="{Binding ElementName=ChannelMixSliderFrom_txt,Path=Text}" TickPlacement="BottomRight" Ticks="-5,-4,-3,-2,-1,0,1,2,3,4,5" SmallChange="0.01" LargeChange="0.1"></Slider>
                         </DockPanel>
                         <DockPanel>
-                            <Label>Method:</Label>
-                            <RadioButton x:Uid="method" IsChecked="True">relative</RadioButton>
-                            <RadioButton x:Uid="method">absolute</RadioButton>
-                        </DockPanel>
-                        <DockPanel>
                             <Label>Global multiplier:</Label>
                             <TextBox DockPanel.Dock="Right" Text="{Binding ElementName=slide_multiplier, Path=Value, Mode=TwoWay}" Width="30" TextAlignment="Right"></TextBox>
                             <Slider Name="slide_multiplier" Value="1" Maximum="5" Minimum="0" TickPlacement="BottomRight" TickFrequency="0.5" SmallChange="0.01" LargeChange="0.1"></Slider>
@@ -219,6 +214,14 @@
                     <Label ToolTip="Method to use to downscale the source images to the matching resolution (full resolution would be impossibly slow)">Downscale method</Label>
                     <RadioButton x:Name="useNNDownscale_radio" IsChecked="True" ToolTip="Use when both images are pixel-perfectly aligned or are essentially the same image. Avoid for images sets with slight or strong distortions in relation to each other, as it will select pixels that do not match each other.">Nearest Neighbor</RadioButton>
                     <RadioButton x:Name="useDefaultDownscale_radio" ToolTip="Default downscale algorithm applied to original images. Ignores gamma and will result in some amount of color shift, however can help when the images have slight or severe geometric distortion towards each other and aren't pixel-perfectly aligned.">Default Downscaler</RadioButton>
+                </WrapPanel>
+
+                <Border BorderThickness="1" BorderBrush="LightGray" Margin="5"></Border>
+                <WrapPanel>
+                    <Label>Diff Method</Label>
+                    <RadioButton x:Name="useRelativeDiff_radio" IsChecked="True">relative</RadioButton>
+                    <RadioButton x:Name="useAbsoluteDiff_radio">absolute</RadioButton>
+                    <RadioButton x:Name="useSuperRelativeDiff_radio">super-relative</RadioButton>
                 </WrapPanel>
             </StackPanel>
         </Grid>

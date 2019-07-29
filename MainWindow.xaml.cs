@@ -88,6 +88,7 @@ namespace ChannelMixMatcher
             float rangeMin, rangeMax, sliderRangeMin, sliderRangeMax, precision, workGamma, testGamma, refGamma;
             int subdiv, resX, resY;
             DOWNSCALE downscaleMethod = DOWNSCALE.DEFAULT;
+            DiffMethods.Method diffMethod;
 
             try
             {
@@ -113,6 +114,22 @@ namespace ChannelMixMatcher
                 {
                     downscaleMethod = DOWNSCALE.DEFAULT;
                 }
+                if (useRelativeDiff_radio.IsChecked == true)
+                {
+                    diffMethod = DiffMethods.Method.RELATIVE;
+                }
+                else if (useAbsoluteDiff_radio.IsChecked == true)
+                {
+                    diffMethod = DiffMethods.Method.ABSOLUTE;
+                }
+                else if (useSuperRelativeDiff_radio.IsChecked == true)
+                {
+                    diffMethod = DiffMethods.Method.SUPERRELATIVE;
+                }
+                else
+                {
+                    diffMethod = DiffMethods.Method.RELATIVE;
+                }
 
             }
             catch (Exception blah)
@@ -136,7 +153,7 @@ namespace ChannelMixMatcher
                     RegradeImage(update.best_matrix);
                 }
             });
-            ColorMatchTask = Task.Run(() => DoColorMatch_Worker(progress,rangeMin,rangeMax,sliderRangeMin,sliderRangeMax,precision,workGamma,testGamma,refGamma,subdiv,resX,resY,testImage,referenceImage,downscaleMethod));
+            ColorMatchTask = Task.Run(() => DoColorMatch_Worker(progress,rangeMin,rangeMax,sliderRangeMin,sliderRangeMax,precision,workGamma,testGamma,refGamma,subdiv,resX,resY,testImage,referenceImage,downscaleMethod,diffMethod));
             setStatus("Started...");
         }
 
@@ -260,7 +277,7 @@ namespace ChannelMixMatcher
         private enum DOWNSCALE { DEFAULT,NN}
 
         // The actual colormatching.
-        private void DoColorMatch_Worker(IProgress<MatchReport> progress, float rangeMin, float rangeMax, float sliderRangeMin, float sliderRangeMax, float precision, float workGamma, float testGamma, float refGamma, int subdiv, int resX, int resY, Bitmap testImage, Bitmap referenceImage, DOWNSCALE downscaleMethod)
+        private void DoColorMatch_Worker(IProgress<MatchReport> progress, float rangeMin, float rangeMax, float sliderRangeMin, float sliderRangeMax, float precision, float workGamma, float testGamma, float refGamma, int subdiv, int resX, int resY, Bitmap testImage, Bitmap referenceImage, DOWNSCALE downscaleMethod, DiffMethods.Method diffMethod)
         {
 
 
@@ -268,6 +285,9 @@ namespace ChannelMixMatcher
 
             //Resize both images to resX,resY
             //TODO: Do proper algorithm that ignores blown highlights
+            // TODO: Add "default linear" downscaler that corrects gamma before downscaling
+            // TODO: add special downscaler that picks only useful pixels
+            // TODO Add second special downscaler that isn't really a downscaler but one that picks most important colors including a slight average.
             Bitmap resizedTestImage, resizedReferenceImage;
             switch(downscaleMethod)
             {
@@ -309,12 +329,14 @@ namespace ChannelMixMatcher
 
             // Nest all sliders (this is where it gets computationally intensive very quick.
             double count = 0;
+            double skipped = 0;
             float[] testColor = new float[3];
             float[] refColor = new float[3];
             float[] testMatrixed = new float[3];
-            float multiplier,multiplierRef;
-            float average_diff;
+            //float multiplier,multiplierRef;
+            double average_diff;
             double best_average_diff = double.PositiveInfinity;
+            double? tmp_diff;
             float[,] current_matrix = new float[3, 3] { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
             float[,] best_matrix = new float[3, 3] { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
             float[,] matchRanges = new float[9, 2] {
@@ -361,8 +383,8 @@ namespace ChannelMixMatcher
                                                 for (int iBtoB = 0; iBtoB < subdiv; iBtoB++)
                                                 {
 
-                                                    float total_diff = 0;
-                                                    float count_diff = 0; //How many diff-values were added to total_diff, so that an average can be calculated
+                                                    double total_diff = 0;
+                                                    Int64 count_diff = 0; //How many diff-values were added to total_diff, so that an average can be calculated
 
                                                     // Calculate matrix
                                                     current_matrix = new float[3, 3] {
@@ -384,56 +406,34 @@ namespace ChannelMixMatcher
                                                             testMatrixed[B] = testImgData[x, y, R] * current_matrix[2, 0] + testImgData[x, y, G] * current_matrix[2, 1] + testImgData[x, y, B] * current_matrix[2, 2];
 
 
-                                                            // Normalize test img. We want only the absolute relations of colors.
-                                                            // Find channel with highest value, set it to 255, then scale otehr channels accordingly
-                                                            // 
-                                                            if (testMatrixed[R] == 0 && testMatrixed[G] == 0 && testMatrixed[B] == 0)
+                                                            // Diff Methods.
+                                                            switch (diffMethod)
                                                             {
-                                                                //this is useless because we can't normalize it
+                                                                case DiffMethods.Method.ABSOLUTE:
+
+                                                                    tmp_diff = DiffMethods.DiffRelative(testMatrixed, refImgData, x, y);
+                                                                    break;
+                                                                case DiffMethods.Method.SUPERRELATIVE:
+
+                                                                    tmp_diff = DiffMethods.DiffSuperRelative(testMatrixed, refImgData, x, y);
+                                                                    break;
+                                                                default:
+                                                                case DiffMethods.Method.RELATIVE:
+
+                                                                    tmp_diff = DiffMethods.DiffAbsolute(testMatrixed, refImgData, x, y);
+                                                                    break;
+                                                            }
+                                                            if (!tmp_diff.HasValue)
+                                                            {
+                                                                skipped++;
                                                                 continue;
                                                             }
-                                                            else { 
+                                                            else
+                                                            {
 
-                                                                if (Math.Abs(testMatrixed[R]) >= Math.Abs(testMatrixed[G]) && Math.Abs(testMatrixed[R]) >= Math.Abs(testMatrixed[B]))
-                                                                {
-                                                                    //if (testMatrixed[R] == 0 || refImgData[x, y, R] == 0) continue;
-                                                                    multiplier = Math.Abs(255f / (float)testMatrixed[R]);
-                                                                    multiplierRef = Math.Abs(255f / (float)refImgData[x, y, R]);
-                                                                    testColor[R] = 255;
-                                                                    testColor[G] = multiplier * testMatrixed[G];
-                                                                    testColor[B] = multiplier * testMatrixed[B];
-                                                                    refColor[R] = 255;
-                                                                    refColor[G] = multiplierRef * refImgData[x, y, G];
-                                                                    refColor[B] = multiplierRef * refImgData[x, y, B];
-                                                                }
-                                                                else if (Math.Abs(testMatrixed[G]) >= Math.Abs(testMatrixed[R]) && Math.Abs(testMatrixed[G]) >= Math.Abs(testMatrixed[B]))
-                                                                {
-                                                                    //if (testMatrixed[G] == 0 || refImgData[x, y, G] == 0) continue;
-                                                                    multiplier = Math.Abs(255f / (float)testMatrixed[G]);
-                                                                    multiplierRef = Math.Abs(255f / (float)refImgData[x, y, G]);
-                                                                    testColor[R] = multiplier * testMatrixed[R];
-                                                                    testColor[G] = 255;
-                                                                    testColor[B] = multiplier * testMatrixed[B];
-                                                                    refColor[R] = multiplierRef * refImgData[x, y, R];
-                                                                    refColor[G] = 255;
-                                                                    refColor[B] = multiplierRef * refImgData[x, y, B];
-                                                                }
-                                                                else if (Math.Abs(testMatrixed[B]) >= Math.Abs(testMatrixed[R]) && Math.Abs(testMatrixed[B]) >= Math.Abs(testMatrixed[G]))
-                                                                {
-                                                                    //if (testMatrixed[B] == 0 || refImgData[x, y, B] == 0) continue;
-                                                                    multiplier = Math.Abs(255f / (float)testMatrixed[B]);
-                                                                    multiplierRef = Math.Abs(255f / (float)refImgData[x, y, B]);
-                                                                    testColor[R] = multiplier * testMatrixed[R];
-                                                                    testColor[G] = multiplier * testMatrixed[G];
-                                                                    testColor[B] = 255;
-                                                                    refColor[R] = multiplierRef * refImgData[x, y, R];
-                                                                    refColor[G] = multiplierRef * refImgData[x, y, G];
-                                                                    refColor[B] = 255;
-                                                                }
-                                                                total_diff += Math.Abs(testColor[R] - refColor[R]) + Math.Abs(testColor[G] - refColor[G]) + Math.Abs(testColor[B] - refColor[B]);
+                                                                total_diff += tmp_diff.Value;
                                                                 count_diff++;
                                                             }
-
 
                                                         }
                                                     }
@@ -576,6 +576,7 @@ namespace ChannelMixMatcher
 
                 setStatus(Helpers.matrixToString<float>(PSmatrix));
                 SetSlidersToMatrix(PSmatrix);
+                RegradeImage(PSmatrix); 
             }
 
         }
@@ -590,6 +591,8 @@ namespace ChannelMixMatcher
             };
         }
 
+
+        // TODO Add automatic scaling if the user wants it.
         private void BtnSaveCHA_Click(object sender, win.RoutedEventArgs e)
         {
             SaveFileDialog sfd = new SaveFileDialog();
@@ -618,8 +621,9 @@ namespace ChannelMixMatcher
             }
 
 
-FuckBeingElegant:
+            FuckBeingElegant:
 
+            //sfd.FileName = ;
             if (sfd.ShowDialog() == true)
             {
                 string filename = sfd.FileName;
