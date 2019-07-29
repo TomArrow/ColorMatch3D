@@ -87,6 +87,7 @@ namespace ChannelMixMatcher
 
             float rangeMin, rangeMax, sliderRangeMin, sliderRangeMax, precision, workGamma, testGamma, refGamma;
             int subdiv, resX, resY;
+            DOWNSCALE downscaleMethod = DOWNSCALE.DEFAULT;
 
             try
             {
@@ -101,6 +102,17 @@ namespace ChannelMixMatcher
                 subdiv = int.Parse(Subdiv_txt.Text);
                 resX = int.Parse(MatchResX_txt.Text);
                 resY = int.Parse(MatchResY_txt.Text);
+                if (useNNDownscale_radio.IsChecked == true)
+                {
+                    downscaleMethod = DOWNSCALE.NN;
+                }
+                else if(useDefaultDownscale_radio.IsChecked == true)
+                {
+                    downscaleMethod = DOWNSCALE.DEFAULT;
+                } else
+                {
+                    downscaleMethod = DOWNSCALE.DEFAULT;
+                }
 
             }
             catch (Exception blah)
@@ -124,7 +136,7 @@ namespace ChannelMixMatcher
                     RegradeImage(update.best_matrix);
                 }
             });
-            ColorMatchTask = Task.Run(() => DoColorMatch_Worker(progress,rangeMin,rangeMax,sliderRangeMin,sliderRangeMax,precision,workGamma,testGamma,refGamma,subdiv,resX,resY,testImage,referenceImage));
+            ColorMatchTask = Task.Run(() => DoColorMatch_Worker(progress,rangeMin,rangeMax,sliderRangeMin,sliderRangeMax,precision,workGamma,testGamma,refGamma,subdiv,resX,resY,testImage,referenceImage,downscaleMethod));
             setStatus("Started...");
         }
 
@@ -198,7 +210,8 @@ namespace ChannelMixMatcher
 
             try
             {
-                BitmapSource result = await Task.Run(() => DoRegrade_Worker(matrix, testGamma, workGamma, new Bitmap(testImage), token));
+                Bitmap tmp = new Bitmap(testImage);
+                BitmapSource result = await Task.Run(() => DoRegrade_Worker(matrix, testGamma, workGamma, tmp, token));
                     ImageTop.Source = result;
             }
             catch (OperationCanceledException)
@@ -244,19 +257,31 @@ namespace ChannelMixMatcher
             return result;
         }
 
+        private enum DOWNSCALE { DEFAULT,NN}
 
         // The actual colormatching.
-        private void DoColorMatch_Worker(IProgress<MatchReport> progress, float rangeMin, float rangeMax, float sliderRangeMin, float sliderRangeMax, float precision, float workGamma, float testGamma, float refGamma, int subdiv, int resX, int resY, Bitmap testImage, Bitmap referenceImage)
+        private void DoColorMatch_Worker(IProgress<MatchReport> progress, float rangeMin, float rangeMax, float sliderRangeMin, float sliderRangeMax, float precision, float workGamma, float testGamma, float refGamma, int subdiv, int resX, int resY, Bitmap testImage, Bitmap referenceImage, DOWNSCALE downscaleMethod)
         {
-            
+
 
             //TODO Sanity checks: rangeMax msut be > rangemin etc.
 
             //Resize both images to resX,resY
             //TODO: Do proper algorithm that ignores blown highlights
-            Bitmap resizedTestImage = new Bitmap(testImage,new Size(resX,resY));
-            Bitmap resizedReferenceImage = new Bitmap(referenceImage,new Size(resX,resY));
-            
+            Bitmap resizedTestImage, resizedReferenceImage;
+            switch(downscaleMethod)
+            {
+                case DOWNSCALE.NN:
+                    resizedTestImage = Helpers.ResizeBitmapNN(testImage, resX, resY);
+                    resizedReferenceImage = Helpers.ResizeBitmapNN(referenceImage, resX, resY);
+                    break;
+                case DOWNSCALE.DEFAULT:
+                default:
+                    resizedTestImage = new Bitmap(testImage, new Size(resX, resY));
+                    resizedReferenceImage = new Bitmap(referenceImage, new Size(resX, resY));
+                    break;
+            }
+
             float[,,] testImgData = new float[resX, resY, 3];
             float[,,] refImgData = new float[resX, resY, 3];
 
@@ -289,7 +314,7 @@ namespace ChannelMixMatcher
             float[] testMatrixed = new float[3];
             float multiplier,multiplierRef;
             float average_diff;
-            double best_average_diff = 10000000;
+            double best_average_diff = double.PositiveInfinity;
             float[,] current_matrix = new float[3, 3] { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
             float[,] best_matrix = new float[3, 3] { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
             float[,] matchRanges = new float[9, 2] {
@@ -348,6 +373,8 @@ namespace ChannelMixMatcher
                                                     {
                                                         for (var y = 0; y < resX; y++)
                                                         {
+
+                                                            // TODO Alternate difference algorithm that doesn't calculate average difference, but peak difference instead. might help with a few things.
 
                                                             count++;
 
@@ -435,6 +462,9 @@ namespace ChannelMixMatcher
                 iteration++;
 
                 // For each new iteration, the current best_matrix +- current stepsize will be used, and that range again divided by subdiv.
+                // TODO: Idea: Make individual stepsize for each of the 9 matrix elements. Why? Because that way whenever the best determined setting is on the outermost of the 4 parts, 
+                //       we can keep a higher border/buffer for the next iteration. In other words, whenever the best value settles on one of the outer values, more buffer will be kept around that border,
+                //       or the stepsize will remain constant for that one, so that it can settle towards something more reasonable.
                 matchRanges = new float[9, 2] {
                         { best_matrix[0,0]-stepSize, best_matrix[0,0]+stepSize},
                         { best_matrix[0,1]-stepSize, best_matrix[0,1]+stepSize},
@@ -543,9 +573,11 @@ namespace ChannelMixMatcher
 
                     }
                 }
+
+                setStatus(Helpers.matrixToString<float>(PSmatrix));
+                SetSlidersToMatrix(PSmatrix);
             }
 
-            setStatus(Helpers.matrixToString<float>(PSmatrix));
         }
 
         private float[,] slidersToMatrix()

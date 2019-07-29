@@ -16,6 +16,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"></ColumnDefinition>
                 <ColumnDefinition Width="250"></ColumnDefinition>
+                <ColumnDefinition Width="125"></ColumnDefinition>
             </Grid.ColumnDefinitions>
             <!-- Images -->
             <Grid Grid.Column="0">
@@ -107,9 +108,9 @@
                     <StackPanel>
                         <DockPanel>
                             <Label>Slider range:</Label>
-                            <TextBox Name="ChannelMixSliderFrom_txt">-3</TextBox>
+                            <TextBox Name="ChannelMixSliderFrom_txt">-2</TextBox>
                             <Label>To</Label>
-                            <TextBox Name="ChannelMixSliderTo_txt">3</TextBox>
+                            <TextBox Name="ChannelMixSliderTo_txt">2</TextBox>
                         </DockPanel>
                         <DockPanel>
                             <Label>R>R</Label>
@@ -195,9 +196,9 @@
                         <!--Idea: Protect crushed highlight colors. Either by leaving all crushed pixels crushed/constant or by crushing other uncrushed channels according to the channelmixing to avoid color-->
                         <DockPanel>
                             <Label>Match range:</Label>
-                            <TextBox x:Name="MatchFrom_txt">-3</TextBox>
+                            <TextBox x:Name="MatchFrom_txt">-2</TextBox>
                             <Label>To</Label>
-                            <TextBox x:Name="MatchTo_txt">3</TextBox>
+                            <TextBox x:Name="MatchTo_txt">2</TextBox>
                             <CheckBox>Link to slider range</CheckBox>
                         </DockPanel>
                         <DockPanel>
@@ -210,6 +211,16 @@
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>
+            <StackPanel Grid.Column="2">
+                <Label>Advanced settings</Label>
+
+                <Border BorderThickness="1" BorderBrush="LightGray" Margin="5"></Border>
+                <WrapPanel>
+                    <Label ToolTip="Method to use to downscale the source images to the matching resolution (full resolution would be impossibly slow)">Downscale method</Label>
+                    <RadioButton x:Name="useNNDownscale_radio" IsChecked="True" ToolTip="Use when both images are pixel-perfectly aligned or are essentially the same image. Avoid for images sets with slight or strong distortions in relation to each other, as it will select pixels that do not match each other.">Nearest Neighbor</RadioButton>
+                    <RadioButton x:Name="useDefaultDownscale_radio" ToolTip="Default downscale algorithm applied to original images. Ignores gamma and will result in some amount of color shift, however can help when the images have slight or severe geometric distortion towards each other and aren't pixel-perfectly aligned.">Default Downscaler</RadioButton>
+                </WrapPanel>
+            </StackPanel>
         </Grid>
 
 
