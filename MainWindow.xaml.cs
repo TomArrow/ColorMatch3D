@@ -323,7 +323,8 @@ namespace ChannelMixMatcher
             }
 
             // Step Size for individual sliders
-            float stepSize = (rangeMax - rangeMin)/subdiv;
+            // Need subdiv-1 because : | segment 1 | segment 2 | segment 3 | , where the "|" represents the testing points and the segments the stepsize
+            float stepSize = (rangeMax - rangeMin)/(subdiv-1); 
             float stepSizeNext = stepSize;
 
 
@@ -476,7 +477,8 @@ namespace ChannelMixMatcher
                         { best_matrix[2,1]-stepSize, best_matrix[2,1]+stepSize},
                         { best_matrix[2,2]-stepSize, best_matrix[2,2]+stepSize}};
 
-                stepSizeNext = stepSize * 2 / subdiv;
+                // Need subdiv-1 because : | segment 1 | segment 2 | segment 3 | , where the "|" represents the testing points and the segments the stepsize
+                stepSizeNext = stepSize * 2 / (subdiv -1);
             }
 
             progress.Report(new MatchReport(count.ToString("#,##0") + ", best average diff: " + best_average_diff.ToString()));
