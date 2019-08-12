@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.28307.329
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChannelMixMatcher", "ChannelMixMatcher.csproj", "{97136518-250B-4BF0-B2FF-6962C211A315}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ColorMatch3D", "ColorMatch3D.csproj", "{97136518-250B-4BF0-B2FF-6962C211A315}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -18,7 +18,7 @@ using Microsoft.Win32;
 using System.Threading;
 using Be.IO;
 
-namespace ChannelMixMatcher
+namespace ColorMatch3D
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -88,7 +88,7 @@ namespace ChannelMixMatcher
             float rangeMin, rangeMax, sliderRangeMin, sliderRangeMax, precision, workGamma, testGamma, refGamma;
             int subdiv, resX, resY;
             DOWNSCALE downscaleMethod = DOWNSCALE.DEFAULT;
-            DiffMethods.Method diffMethod;
+            NormalizationMethods.Method normalizationMethod;
 
             try
             {
@@ -114,21 +114,21 @@ namespace ChannelMixMatcher
                 {
                     downscaleMethod = DOWNSCALE.DEFAULT;
                 }
-                if (useRelativeDiff_radio.IsChecked == true)
+                if (useRelativeNormalization_radio.IsChecked == true)
                 {
-                    diffMethod = DiffMethods.Method.RELATIVE;
+                    normalizationMethod = NormalizationMethods.Method.RELATIVE;
                 }
-                else if (useAbsoluteDiff_radio.IsChecked == true)
+                else if (useAbsoluteNormalization_radio.IsChecked == true)
                 {
-                    diffMethod = DiffMethods.Method.ABSOLUTE;
+                    normalizationMethod = NormalizationMethods.Method.ABSOLUTE;
                 }
-                else if (useSuperRelativeDiff_radio.IsChecked == true)
+                else if (useSuperRelativeNormalization_radio.IsChecked == true)
                 {
-                    diffMethod = DiffMethods.Method.SUPERRELATIVE;
+                    normalizationMethod = NormalizationMethods.Method.SUPERRELATIVE;
                 }
                 else
                 {
-                    diffMethod = DiffMethods.Method.RELATIVE;
+                    normalizationMethod = NormalizationMethods.Method.RELATIVE;
                 }
 
             }
@@ -153,7 +153,7 @@ namespace ChannelMixMatcher
                     RegradeImage(update.best_matrix);
                 }
             });
-            ColorMatchTask = Task.Run(() => DoColorMatch_Worker(progress,rangeMin,rangeMax,sliderRangeMin,sliderRangeMax,precision,workGamma,testGamma,refGamma,subdiv,resX,resY,testImage,referenceImage,downscaleMethod,diffMethod));
+            ColorMatchTask = Task.Run(() => DoColorMatch_Worker(progress,rangeMin,rangeMax,sliderRangeMin,sliderRangeMax,precision,workGamma,testGamma,refGamma,subdiv,resX,resY,testImage,referenceImage,downscaleMethod,normalizationMethod));
             setStatus("Started...");
         }
 
@@ -277,7 +277,7 @@ namespace ChannelMixMatcher
         private enum DOWNSCALE { DEFAULT,NN}
 
         // The actual colormatching.
-        private void DoColorMatch_Worker(IProgress<MatchReport> progress, float rangeMin, float rangeMax, float sliderRangeMin, float sliderRangeMax, float precision, float workGamma, float testGamma, float refGamma, int subdiv, int resX, int resY, Bitmap testImage, Bitmap referenceImage, DOWNSCALE downscaleMethod, DiffMethods.Method diffMethod)
+        private void DoColorMatch_Worker(IProgress<MatchReport> progress, float rangeMin, float rangeMax, float sliderRangeMin, float sliderRangeMax, float precision, float workGamma, float testGamma, float refGamma, int subdiv, int resX, int resY, Bitmap testImage, Bitmap referenceImage, DOWNSCALE downscaleMethod, NormalizationMethods.Method normalizationMethod)
         {
 
 
@@ -408,20 +408,20 @@ namespace ChannelMixMatcher
 
 
                                                             // Diff Methods.
-                                                            switch (diffMethod)
+                                                            switch (normalizationMethod)
                                                             {
-                                                                case DiffMethods.Method.ABSOLUTE:
+                                                                case NormalizationMethods.Method.ABSOLUTE:
 
-                                                                    tmp_diff = DiffMethods.DiffRelative(testMatrixed, refImgData, x, y);
+                                                                    tmp_diff = NormalizationMethods.DiffRelative(testMatrixed, refImgData, x, y);
                                                                     break;
-                                                                case DiffMethods.Method.SUPERRELATIVE:
+                                                                case NormalizationMethods.Method.SUPERRELATIVE:
 
-                                                                    tmp_diff = DiffMethods.DiffSuperRelative(testMatrixed, refImgData, x, y);
+                                                                    tmp_diff = NormalizationMethods.DiffSuperRelative(testMatrixed, refImgData, x, y);
                                                                     break;
                                                                 default:
-                                                                case DiffMethods.Method.RELATIVE:
+                                                                case NormalizationMethods.Method.RELATIVE:
 
-                                                                    tmp_diff = DiffMethods.DiffAbsolute(testMatrixed, refImgData, x, y);
+                                                                    tmp_diff = NormalizationMethods.DiffAbsolute(testMatrixed, refImgData, x, y);
                                                                     break;
                                                             }
                                                             if (!tmp_diff.HasValue)
@@ -441,6 +441,7 @@ namespace ChannelMixMatcher
                                                     // Calculate average diff for this particular matrix
                                                     // If it's better than the one saved as best_average_diff,
                                                     // it overwrites it and this matrix takes the place of best_matrix
+                                                    // TODO PSNR (?) instead of average as option
                                                     average_diff = total_diff / count_diff;
                                                     if (average_diff < best_average_diff)
                                                     {

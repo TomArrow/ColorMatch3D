@@ -7,7 +7,7 @@ using System.Drawing;
 using System.Windows.Media.Imaging;
 using System.IO;
 
-namespace ChannelMixMatcher
+namespace ColorMatch3D
 {
     static class Helpers
     {

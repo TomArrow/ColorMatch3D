@@ -1,11 +1,11 @@
-﻿<Window x:Class="ChannelMixMatcher.MainWindow"
+﻿<Window x:Class="ColorMatch3D.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:ChannelMixMatcher"
+        xmlns:local="clr-namespace:ColorMatch3D"
         mc:Ignorable="d"
-        Title="ColorMixMatcher" MinHeight="900" Height="900" Width="1000" MinWidth="600">
+        Title="ColorMatch3D" MinHeight="900" Height="900" Width="1000" MinWidth="600">
     <Grid>
 
         <Grid.RowDefinitions>
@@ -16,13 +16,14 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"></ColumnDefinition>
                 <ColumnDefinition Width="250"></ColumnDefinition>
-                <ColumnDefinition Width="125"></ColumnDefinition>
+                <ColumnDefinition Width="200"></ColumnDefinition>
             </Grid.ColumnDefinitions>
             <!-- Images -->
             <Grid Grid.Column="0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*"></RowDefinition>
                     <RowDefinition Height="25"></RowDefinition>
+                    <RowDefinition Height="5"></RowDefinition>
                     <RowDefinition Height="*"></RowDefinition>
                     <RowDefinition Height="25"></RowDefinition>
                 </Grid.RowDefinitions>
@@ -33,8 +34,12 @@
                     <Label>Regrade</Label>
                 </DockPanel>
 
-                <Image Grid.Row="2" x:Name="ImageBottom"></Image>
-                <DockPanel Grid.Row="3">
+                <GridSplitter Grid.Row="2" Height="3" VerticalAlignment="Center" HorizontalAlignment="Stretch" ShowsPreview="False">
+                    
+                </GridSplitter>
+                
+                <Image Grid.Row="3" x:Name="ImageBottom"></Image>
+                <DockPanel Grid.Row="4">
                     <Label>Regrade</Label>
                     <Slider Minimum="0" Maximum="1" MinWidth="80" TickPlacement="BottomRight" TickFrequency="0.1" Value="1"></Slider>
                     <Label>Reference</Label>
@@ -46,161 +51,23 @@
                 <StackPanel>
                     <Button Click="SelectTest_Click">Select test image...</Button>
                     <DockPanel LastChildFill="True">
-                        <Label >Assume gamma of test image:</Label>
-                        <TextBox TextAlignment="Right" x:Name="TestImageGamma_txt">2.2</TextBox>
+                        <Label >Test image is:</Label>
+                        <RadioButton IsChecked="True">sRGB</RadioButton>
+                        <RadioButton>sRGB Linear</RadioButton>
                     </DockPanel>
                     <Button Click="SelectReference_Click">Select reference image...</Button>
                     <DockPanel LastChildFill="True">
-                        <Label>Assume gamma of reference image:</Label>
-                        <TextBox TextAlignment="Right" x:Name="ReferenceImageGamma_txt">2.2</TextBox>
+                        <Label>Reference image is:</Label>
+                        <RadioButton IsChecked="True">sRGB</RadioButton>
+                        <RadioButton>sRGB Linear</RadioButton>
                     </DockPanel>
 
-                    <DockPanel>
-
-                        <DockPanel>
-                            <Label DockPanel.Dock="Top" HorizontalAlignment="Center">Automatch</Label>
-                            <TextBlock DockPanel.Dock="Bottom" TextAlignment="Center">1 0 0<LineBreak></LineBreak>
-                            0 1 0<LineBreak></LineBreak>
-                            0 0 1</TextBlock>
-                        </DockPanel>
-                        <StackPanel>
-
-                            <Label HorizontalAlignment="Center">Manual</Label>
-                            <Grid  HorizontalAlignment="Center">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"></ColumnDefinition>
-                                    <ColumnDefinition Width="Auto"></ColumnDefinition>
-                                    <ColumnDefinition Width="Auto"></ColumnDefinition>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"></RowDefinition>
-                                    <RowDefinition Height="Auto"></RowDefinition>
-                                    <RowDefinition Height="Auto"></RowDefinition>
-                                </Grid.RowDefinitions>
-                                <TextBox Grid.Row="0" Grid.Column="0">1</TextBox>
-                                <TextBox Grid.Row="0" Grid.Column="1">0</TextBox>
-                                <TextBox Grid.Row="0" Grid.Column="2">0</TextBox>
-                                <TextBox Grid.Row="1" Grid.Column="0">0</TextBox>
-                                <TextBox Grid.Row="1" Grid.Column="1">1</TextBox>
-                                <TextBox Grid.Row="1" Grid.Column="2">0</TextBox>
-                                <TextBox Grid.Row="2" Grid.Column="0">0</TextBox>
-                                <TextBox Grid.Row="2" Grid.Column="1">0</TextBox>
-                                <TextBox Grid.Row="2" Grid.Column="2">1</TextBox>
-                            </Grid>
-                        </StackPanel>
-                        <StackPanel>
-                            <DockPanel>
-                                <Label ToolTip="Should always be 1, except for reversing conversions that were mistakenly done in wrong gamma.">Work gamma:</Label>
-                                <TextBox x:Name="WorkGamma_txt">1</TextBox>
-                            </DockPanel>
-                            <Button x:Name="btnLoadCHA" Click="BtnLoadCHA_Click" ToolTip="Load an RGB .CHA Channel Mixer Preset from Photoshop">Load PS CHA Preset*</Button>
-                            <TextBlock TextWrapping="Wrap" TextAlignment="Center">
-                                *This will overwrite manual matrix numbers
-                            </TextBlock>
-                        </StackPanel>
-                    </DockPanel>
-                    <DockPanel>
-                        <Label>Set sliders:</Label>
-                        <Button>Reset</Button>
-                        <Button>Automatch</Button>
-                        <Button>Manual</Button>
-                    </DockPanel>
                     <StackPanel>
                         <DockPanel>
-                            <Label>Slider range:</Label>
-                            <TextBox Name="ChannelMixSliderFrom_txt">-2</TextBox>
-                            <Label>To</Label>
-                            <TextBox Name="ChannelMixSliderTo_txt">2</TextBox>
-                        </DockPanel>
-                        <DockPanel>
-                            <Label>R>R</Label>
-                            <TextBox DockPanel.Dock="Right" Text="{Binding ElementName=slide_RtoR, Path=Value, Mode=TwoWay}" Width="30" TextAlignment="Right"></TextBox>
-                            <Slider Name="slide_RtoR" Value="1" Maximum="{Binding ElementName=ChannelMixSliderTo_txt,Path=Text}" Minimum="{Binding ElementName=ChannelMixSliderFrom_txt,Path=Text}" TickPlacement="BottomRight" Ticks="-5,-4,-3,-2,-1,0,1,2,3,4,5" SmallChange="0.01" LargeChange="0.1"></Slider>
-                        </DockPanel>
-                        <DockPanel>
-                            <Label>G>R</Label>
-                            <TextBox DockPanel.Dock="Right" Text="{Binding ElementName=slide_GtoR, Path=Value, Mode=TwoWay}" Width="30" TextAlignment="Right"></TextBox>
-                            <Slider Name="slide_GtoR" Value="0" Maximum="{Binding ElementName=ChannelMixSliderTo_txt,Path=Text}" Minimum="{Binding ElementName=ChannelMixSliderFrom_txt,Path=Text}" TickPlacement="BottomRight" Ticks="-5,-4,-3,-2,-1,0,1,2,3,4,5" SmallChange="0.01" LargeChange="0.1"></Slider>
-                        </DockPanel>
-                        <DockPanel>
-                            <Label>B>R</Label>
-                            <TextBox DockPanel.Dock="Right" Text="{Binding ElementName=slide_BtoR, Path=Value, Mode=TwoWay}" Width="30" TextAlignment="Right"></TextBox>
-                            <Slider Name="slide_BtoR" Value="0" Maximum="{Binding ElementName=ChannelMixSliderTo_txt,Path=Text}" Minimum="{Binding ElementName=ChannelMixSliderFrom_txt,Path=Text}" TickPlacement="BottomRight" Ticks="-5,-4,-3,-2,-1,0,1,2,3,4,5" SmallChange="0.01" LargeChange="0.1"></Slider>
-                        </DockPanel>
-                        <Border BorderThickness="1" BorderBrush="LightGray" Margin="5"></Border>
-                        <DockPanel>
-                            <Label>R>G</Label>
-                            <TextBox DockPanel.Dock="Right" Text="{Binding ElementName=slide_RtoG, Path=Value, Mode=TwoWay}" Width="30" TextAlignment="Right"></TextBox>
-                            <Slider Name="slide_RtoG" Value="0" Maximum="{Binding ElementName=ChannelMixSliderTo_txt,Path=Text}" Minimum="{Binding ElementName=ChannelMixSliderFrom_txt,Path=Text}" TickPlacement="BottomRight" Ticks="-5,-4,-3,-2,-1,0,1,2,3,4,5" SmallChange="0.01" LargeChange="0.1"></Slider>
-                        </DockPanel>
-                        <DockPanel>
-                            <Label>G>G</Label>
-                            <TextBox DockPanel.Dock="Right" Text="{Binding ElementName=slide_GtoG, Path=Value, Mode=TwoWay}" Width="30" TextAlignment="Right"></TextBox>
-                            <Slider Name="slide_GtoG" Value="1" Maximum="{Binding ElementName=ChannelMixSliderTo_txt,Path=Text}" Minimum="{Binding ElementName=ChannelMixSliderFrom_txt,Path=Text}" TickPlacement="BottomRight" Ticks="-5,-4,-3,-2,-1,0,1,2,3,4,5" SmallChange="0.01" LargeChange="0.1"></Slider>
-                        </DockPanel>
-                        <DockPanel>
-                            <Label>B>G</Label>
-                            <TextBox DockPanel.Dock="Right" Text="{Binding ElementName=slide_BtoG, Path=Value, Mode=TwoWay}" Width="30" TextAlignment="Right"></TextBox>
-                            <Slider Name="slide_BtoG" Value="0" Maximum="{Binding ElementName=ChannelMixSliderTo_txt,Path=Text}" Minimum="{Binding ElementName=ChannelMixSliderFrom_txt,Path=Text}" TickPlacement="BottomRight" Ticks="-5,-4,-3,-2,-1,0,1,2,3,4,5" SmallChange="0.01" LargeChange="0.1"></Slider>
-                        </DockPanel>
-                        <Border BorderThickness="1" BorderBrush="LightGray" Margin="5"></Border>
-                        <DockPanel>
-                            <Label>R>B</Label>
-                            <TextBox DockPanel.Dock="Right" Text="{Binding ElementName=slide_RtoB, Path=Value, Mode=TwoWay}" Width="30" TextAlignment="Right"></TextBox>
-                            <Slider Name="slide_RtoB" Value="0" Maximum="{Binding ElementName=ChannelMixSliderTo_txt,Path=Text}" Minimum="{Binding ElementName=ChannelMixSliderFrom_txt,Path=Text}" TickPlacement="BottomRight" Ticks="-5,-4,-3,-2,-1,0,1,2,3,4,5" SmallChange="0.01" LargeChange="0.1"></Slider>
-                        </DockPanel>
-                        <DockPanel>
-                            <Label>G>B</Label>
-                            <TextBox DockPanel.Dock="Right" Text="{Binding ElementName=slide_GtoB, Path=Value, Mode=TwoWay}" Width="30" TextAlignment="Right"></TextBox>
-                            <Slider Name="slide_GtoB" Value="0" Maximum="{Binding ElementName=ChannelMixSliderTo_txt,Path=Text}" Minimum="{Binding ElementName=ChannelMixSliderFrom_txt,Path=Text}" TickPlacement="BottomRight" Ticks="-5,-4,-3,-2,-1,0,1,2,3,4,5" SmallChange="0.01" LargeChange="0.1"></Slider>
-                        </DockPanel>
-                        <DockPanel>
-                            <Label>B>B</Label>
-                            <TextBox DockPanel.Dock="Right" Text="{Binding ElementName=slide_BtoB, Path=Value, Mode=TwoWay}" Width="30" TextAlignment="Right"></TextBox>
-                            <Slider Name="slide_BtoB" Value="1" Maximum="{Binding ElementName=ChannelMixSliderTo_txt,Path=Text}" Minimum="{Binding ElementName=ChannelMixSliderFrom_txt,Path=Text}" TickPlacement="BottomRight" Ticks="-5,-4,-3,-2,-1,0,1,2,3,4,5" SmallChange="0.01" LargeChange="0.1"></Slider>
-                        </DockPanel>
-                        <DockPanel>
-                            <Label>Global multiplier:</Label>
-                            <TextBox DockPanel.Dock="Right" Text="{Binding ElementName=slide_multiplier, Path=Value, Mode=TwoWay}" Width="30" TextAlignment="Right"></TextBox>
-                            <Slider Name="slide_multiplier" Value="1" Maximum="5" Minimum="0" TickPlacement="BottomRight" TickFrequency="0.5" SmallChange="0.01" LargeChange="0.1"></Slider>
-                        </DockPanel>
-                        <Button>Auto-multiplier (avoid clipping)</Button>
-                        <Button x:Name="btnSaveCHA" Click="BtnSaveCHA_Click">Export Channel Mixer Photoshop Preset</Button>
-                        <DockPanel>
                             <Button>Export 3D LUT (.cube)</Button>
-                            <Label>Gamma:</Label>
-                            <TextBox TextAlignment="Right">1</TextBox>
-                        </DockPanel>
-                        <Border BorderThickness="1" BorderBrush="LightGray" Margin="5"></Border>
-                        <DockPanel>
-                            <Label>Match precision:</Label>
-                            <TextBox TextAlignment="Right" x:Name="Precision_txt">0.1</TextBox>
-                            <Label ToolTip="How many subdivisions per slider are used in one iteration of matching. Higher numbers drastically reduce speed. Basically, don't change.">Subdiv:</Label>
-                            <TextBox TextAlignment="Right" x:Name="Subdiv_txt" TextChanged="updateIter_Change">4</TextBox>
-                        </DockPanel>
-                        <DockPanel>
-                            <CheckBox IsChecked="True" ToolTip="Will ignore image spots where one of the channels is blown out, as the colormatching relies on the relative values of the channels to each other, so blown highlights compromise the result.">Ignore blown highlights</CheckBox>
-                            <Label ToolTip="Lowest level at which a channel is considered to be blown out (0-255)">Threshold:</Label>
-                            <TextBox>255</TextBox>
-                        </DockPanel>
-                        <DockPanel>
-                            <CheckBox IsChecked="True" ToolTip="Will ignore image spots where one of the channels is crushed, as the colormatching relies on the relative values of the channels to each other, so crushed blacks compromise the result.">Ignore crushed blacks</CheckBox>
-                            <Label ToolTip="Highest level at which a channel is considered to be crushed (0-255)">Threshold:</Label>
-                            <TextBox>0</TextBox>
-                        </DockPanel>
-                        <!--Idea: Protect crushed highlight colors. Either by leaving all crushed pixels crushed/constant or by crushing other uncrushed channels according to the channelmixing to avoid color-->
-                        <DockPanel>
-                            <Label>Match range:</Label>
-                            <TextBox x:Name="MatchFrom_txt">-2</TextBox>
-                            <Label>To</Label>
-                            <TextBox x:Name="MatchTo_txt">2</TextBox>
-                            <CheckBox>Link to slider range</CheckBox>
-                        </DockPanel>
-                        <DockPanel>
-                            <Label ToolTip="Higher resolutions drastically reduce speed. Basically don't change.">Match resolution:</Label>
-                            <TextBox x:Name="MatchResX_txt" TextChanged="updateIter_Change">30</TextBox>
-                            <Label>x</Label>
-                            <TextBox x:Name="MatchResY_txt" TextChanged="updateIter_Change">30</TextBox>
+                            <Label>Export for:</Label>
+                            <RadioButton IsChecked="True">sRGB</RadioButton>
+                            <RadioButton>sRGB Linear</RadioButton>
                         </DockPanel>
                         <Button Background="Red" Foreground="White" FontWeight="Black" Click="DoColorMatch_Click">Run ColorMatch</Button>
                     </StackPanel>
@@ -210,18 +77,24 @@
                 <Label>Advanced settings</Label>
 
                 <Border BorderThickness="1" BorderBrush="LightGray" Margin="5"></Border>
-                <WrapPanel>
-                    <Label ToolTip="Method to use to downscale the source images to the matching resolution (full resolution would be impossibly slow)">Downscale method</Label>
-                    <RadioButton x:Name="useNNDownscale_radio" IsChecked="True" ToolTip="Use when both images are pixel-perfectly aligned or are essentially the same image. Avoid for images sets with slight or strong distortions in relation to each other, as it will select pixels that do not match each other.">Nearest Neighbor</RadioButton>
-                    <RadioButton x:Name="useDefaultDownscale_radio" ToolTip="Default downscale algorithm applied to original images. Ignores gamma and will result in some amount of color shift, however can help when the images have slight or severe geometric distortion towards each other and aren't pixel-perfectly aligned.">Default Downscaler</RadioButton>
-                </WrapPanel>
 
                 <Border BorderThickness="1" BorderBrush="LightGray" Margin="5"></Border>
+                <Label>Matching Method</Label>
                 <WrapPanel>
-                    <Label>Diff Method</Label>
-                    <RadioButton x:Name="useRelativeDiff_radio" IsChecked="True">relative</RadioButton>
-                    <RadioButton x:Name="useAbsoluteDiff_radio">absolute</RadioButton>
-                    <RadioButton x:Name="useSuperRelativeDiff_radio">super-relative</RadioButton>
+                    <RadioButton x:Name="useAbsoluteMatching_radio" IsChecked="True">absolute</RadioButton>
+                    <RadioButton x:Name="useColorMatching_radio">color</RadioButton>
+                </WrapPanel>
+                <Label>Aggregation color space</Label>
+                <WrapPanel>
+                    <RadioButton x:Name="useRGBAggrSpace_radio" IsChecked="True">RGB</RadioButton>
+                    <RadioButton x:Name="useRGBLinearAggrSpace_radio">RGB Linear</RadioButton>
+                    <RadioButton x:Name="useXYZAggrSpace_radio">XYZ</RadioButton>
+                    <RadioButton x:Name="useCIELabAggrSpace_radio">CIELab</RadioButton>
+                </WrapPanel>
+                <Label>Aggregation method</Label>
+                <WrapPanel>
+                    <RadioButton x:Name="useMeanAggr_radio" IsChecked="True">Mean</RadioButton>
+                    <RadioButton x:Name="useMedianAggr_radio">Median</RadioButton>
                 </WrapPanel>
             </StackPanel>
         </Grid>
