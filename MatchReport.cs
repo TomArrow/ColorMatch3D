@@ -11,15 +11,13 @@ namespace ColorMatch3D
 
         public string message = "";
         public bool error = false;
-        public float[,] best_matrix = null;
-        public float[,] matching_range = null; // 9,2 matrix containing min and max values for each part of the matrix, as it gets progressively more precise
+        public float[,,][] cube = null;
 
-        public MatchReport(string Amessage, bool Aerror = false, float[,] Abest_matrix = null, float[,] Amatching_range = null)
+        public MatchReport(string Amessage, bool Aerror = false, float[,,][] cubeA = null)
         {
             message = Amessage;
             error = Aerror;
-            best_matrix = Abest_matrix;
-            matching_range = Amatching_range;
+            cube = cubeA;
         }
     }
 }

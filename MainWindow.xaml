@@ -64,11 +64,15 @@
 
                     <StackPanel>
                         <DockPanel>
-                            <Button>Export 3D LUT (.cube)</Button>
+                            <Label>Subdivisions per dimension:</Label>
+                            <TextBox>32</TextBox>
+                        </DockPanel>
+                        <WrapPanel>
+                            <Button x:Name="btnMakeLUT" Click="BtnMakeLUT_Click">Export 3D LUT (.cube)</Button>
                             <Label>Export for:</Label>
                             <RadioButton IsChecked="True">sRGB</RadioButton>
                             <RadioButton>sRGB Linear</RadioButton>
-                        </DockPanel>
+                        </WrapPanel>
                         <Button Background="Red" Foreground="White" FontWeight="Black" Click="DoColorMatch_Click">Run ColorMatch</Button>
                     </StackPanel>
                 </StackPanel>
@@ -103,8 +107,6 @@
         <DockPanel Grid.Row="1">
             <Label>Status: </Label>
             <TextBlock x:Name="Status_txt">Idle.</TextBlock>
-            <TextBlock DockPanel.Dock="Right" x:Name="IterSteps_txt">N/A</TextBlock>
-            <Label HorizontalContentAlignment="Right">Amount of steps per iteration:</Label>
         </DockPanel>
     </Grid>
 </Window>
