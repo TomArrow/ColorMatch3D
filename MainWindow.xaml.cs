@@ -213,6 +213,8 @@ namespace ColorMatch3D
             }
         }*/
 
+
+
         // The actual colormatching.
         private void DoColorMatch_Worker(IProgress<MatchReport> progress,Bitmap testImage, Bitmap referenceImage)
         {
@@ -357,7 +359,9 @@ namespace ColorMatch3D
             float red, green, blue;
             List<ColorPair> collectCubeHere;
 
-            for(red = 0;  ((int)red) <= 255; red+= stepSize)
+            float sqrtOf3 = (float)Math.Sqrt(3);
+
+            for (red = 0;  ((int)red) <= 255; red+= stepSize)
             {
                 redQuadrant = (int)Math.Round(red / stepSize);
                 for (green = 0; ((int)green) <= 255; green += stepSize)
@@ -387,7 +391,7 @@ namespace ColorMatch3D
                                 tmp1 = (red - pair.RCORD) / stepSize;
                                 tmp2 = (green - pair.GCORD) / stepSize;
                                 tmp3 = (blue - pair.BCORD) / stepSize;
-                                weight = Math.Max(0, 1f - (float)Math.Sqrt(
+                                weight = Math.Max(0, sqrtOf3 - (float)Math.Sqrt(
                                     (tmp1 * tmp1
                                     + tmp2 * tmp2
                                     + tmp3 * tmp3)

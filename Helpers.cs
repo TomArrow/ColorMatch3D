@@ -12,7 +12,7 @@ namespace ColorMatch3D
 {
     static class Helpers
     {
-
+        
         static public BitmapImage BitmapToImageSource(Bitmap bitmap)
         {
             using (MemoryStream memory = new MemoryStream())
