@@ -189,11 +189,19 @@ namespace ColorMatch3D
 
         int outputValueCount = 32;
 
+
+        const int RCORD = 3;
+        const int GCORD = 4;
+        const int BCORD = 5;
+
         // The actual colormatching.
         private void DoColorMatch_Worker(IProgress<MatchReport> progress,Bitmap testImage, Bitmap referenceImage)
         {
 
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            List<long> durations = new List<long>();
 
+            
             //TODO Sanity checks: rangeMax msut be > rangemin etc.
 
             //Resize both images to resX,resY
@@ -213,7 +221,7 @@ namespace ColorMatch3D
             // Each entry is a list of int[] arrays, each containing an RGB color
             // The [256,256,256] array represents the colors of the test image
             // The int[] arrays represent corresponding colors in the reference image that were found in an identical position.
-            List<int[]>[,,] histogram3D = new List<int[]>[256, 256, 256];
+            //List<int[]>[,,] histogram3D = new List<int[]>[256, 256, 256];
 
             // Got tip:
             /*
@@ -230,23 +238,37 @@ namespace ColorMatch3D
 
 
             resizedReferenceImage = new Bitmap(referenceImage, new Size(resX, resY));
+            //Bitmap debugBitmap = new Bitmap(referenceImage, new Size(resX, resY));
+
+            // Need to do new Bitmap() because it converts to ARGB, and we have consistency for the following loop, otherwise shit results.
+            // No need to do for reference image because it was already resized and thus regenerated.
+            ByteImage testBitmap = Helpers.BitmapToByteArray(new Bitmap(testImage));
+            ByteImage referenceBitmap = Helpers.BitmapToByteArray(resizedReferenceImage);
 
             // Convert images into arrays for faster access (hopefully)
             for (var x = 0; x < resX; x++)
             {
                 for (var y = 0; y < resY; y++)
                 {
-                    Color testPixel = testImage.GetPixel(x, y);
-                    testImgData[x, y, R] = testPixel.R;
-                    testImgData[x, y, G] = testPixel.G;
-                    testImgData[x, y, B] = testPixel.B;
+                    testImgData[x, y, B] = testBitmap[testBitmap.stride * y + x * 4];
+                    testImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 4 + 1];
+                    testImgData[x, y, R] = testBitmap[testBitmap.stride * y + x * 4 + 2];
 
-                    Color referencePixel = resizedReferenceImage.GetPixel(x, y);
-                    refImgData[x, y, R] = referencePixel.R;
-                    refImgData[x, y, G] = referencePixel.G;
-                    refImgData[x, y, B] = referencePixel.B;
+                    refImgData[x, y, B] = referenceBitmap[referenceBitmap.stride * y + x * 4];
+                    refImgData[x, y, G] = referenceBitmap[referenceBitmap.stride * y + x * 4 + 1];
+                    refImgData[x, y, R] = referenceBitmap[referenceBitmap.stride * y + x * 4 + 2];
+
+                    /*debugBitmap.SetPixel(x, y, Color.FromArgb(testBitmap[testBitmap.stride * y + x * 3],
+                        refImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 3 + 1],
+                        refImgData[x, y, R] = testBitmap[testBitmap.stride * y + x * 3 + 2]));*/
+
+
                 }
             }
+
+            //debugBitmap.Save("test2.png");
+
+            durations.Add(watch.ElapsedMilliseconds);
 
 
             // this will save which cube parts the algo should even bother to loop through. will set bool to true for that segment if anything was found in there.
@@ -259,34 +281,36 @@ namespace ColorMatch3D
             float stepSize = 255 / (float)steps;
             int stepR, stepG, stepB;
             int trueStepR, trueStepG, trueStepB;
+            int[] thisPoint;
+            int rAround, gAround, bAround;
+
+            List<int[]>[,,] collectCube = new List<int[]>[outputValueCount,outputValueCount,outputValueCount];
 
             // Build full histogram
             for (var x = 0; x < resX; x++)
             {
                 for (var y = 0; y < resY; y++)
                 {
-                    int[] value = new int[3] { refImgData[x, y, R], refImgData[x, y, G], refImgData[x, y, B] };
-                    if(histogram3D[testImgData[x, y, R], testImgData[x, y, G], testImgData[x, y, B]] == null)
-                    {
-                        histogram3D[testImgData[x, y, R], testImgData[x, y, G], testImgData[x, y, B]] = new List<int[]>();
-                    }
-                    histogram3D[testImgData[x, y, R], testImgData[x, y, G], testImgData[x, y, B]].Add(value);
-
-
+                    
                     // set preCube (massive speedup later)
                     stepR = (int)Math.Round(testImgData[x, y, R] / stepSize);
                     stepG = (int)Math.Round(testImgData[x, y, G] / stepSize);
                     stepB = (int)Math.Round(testImgData[x, y, B] / stepSize);
-                    for(int rAround = -1; rAround <= 1; rAround++)
+                    thisPoint = new int[6] {  refImgData[x, y, R], refImgData[x, y, G], refImgData[x, y, B], testImgData[x, y, R], testImgData[x, y, G], testImgData[x, y, B] };
+                    for (rAround = -1; rAround <= 1; rAround++)
                     {
-                        for (int gAround = -1; gAround <= 1; gAround++)
+                        for (gAround = -1; gAround <= 1; gAround++)
                         {
-                            for (int bAround = -1; bAround <= 1; bAround++)
+                            for (bAround = -1; bAround <= 1; bAround++)
                             {
                                 trueStepR = Math.Max(0, Math.Min(steps, stepR + rAround));
                                 trueStepG = Math.Max(0, Math.Min(steps, stepG + gAround));
                                 trueStepB = Math.Max(0, Math.Min(steps, stepB + bAround));
-                                preCube[trueStepR,trueStepG,trueStepB] = true;
+                                if(collectCube[trueStepR, trueStepG, trueStepB] == null)
+                                {
+                                    collectCube[trueStepR, trueStepG, trueStepB] = new List<int[]>();
+                                }
+                                collectCube[trueStepR, trueStepG, trueStepB].Add(thisPoint);
                             }
                         }
                     }
@@ -295,6 +319,7 @@ namespace ColorMatch3D
                 progress.Report(new MatchReport("Building histogram [" + x + ", x], "));
             }
 
+            durations.Add(watch.ElapsedMilliseconds);
 
             // Build 32x32x32 cube data ( TODO later make the precision flexible)
             float[,,][] cube = new float[outputValueCount, outputValueCount, outputValueCount][];
@@ -305,25 +330,19 @@ namespace ColorMatch3D
             double[] sum, tmpsum;
             float divisor;
             int redQuadrant, greenQuadrant, blueQuadrant;
+            float red, green, blue;
+            List<int[]> collectCubeHere;
 
-            for(float red = 0;  ((int)red) <= 255; red+= stepSize)
+            for(red = 0;  ((int)red) <= 255; red+= stepSize)
             {
                 redQuadrant = (int)Math.Round(red / stepSize);
-                for (float green = 0; ((int)green) <= 255; green += stepSize)
+                for (green = 0; ((int)green) <= 255; green += stepSize)
                 {
                     greenQuadrant = (int)Math.Round(green / stepSize);
-                    for (float blue = 0; ((int)blue) <= 255; blue += stepSize)
+                    for (blue = 0; ((int)blue) <= 255; blue += stepSize)
                     {
                         blueQuadrant = (int)Math.Round(blue / stepSize);
 
-                        // Skip the inner loop if there are no values in that area of the histogram anyway.
-
-                        if (preCube[redQuadrant, greenQuadrant, blueQuadrant] != true)
-                        {
-
-                            cube[redQuadrant, greenQuadrant, blueQuadrant] = new float[3] { float.NaN, float.NaN, float.NaN };
-                            continue;
-                        }
 
                         // Now go through all surrounding values in the 3D histogram and calculate a weighed average (or later median maybe). If the distance is stepSize, weight is 0, if distance is 0, weight is 1
                         // Interpolation will be an average of the linear 1-dimensional distances. (not sure if that's ideal tbh)
@@ -331,77 +350,32 @@ namespace ColorMatch3D
 
                         sum = new double[3] { 0, 0, 0 };
                         divisor = 0;
-
-                        for (float redHist = Math.Max(0,red-stepSize+1); redHist < Math.Min(255,red+stepSize); redHist ++)
+                        
+                        if (collectCube[redQuadrant,greenQuadrant,blueQuadrant] != null)
                         {
-                            for (float greenHist = Math.Max(0,green-stepSize+1); greenHist < Math.Min(255,green+stepSize); greenHist ++)
+
+                            collectCubeHere = collectCube[redQuadrant, greenQuadrant, blueQuadrant];
+
+                            foreach(int[] pair in collectCubeHere)
                             {
-                                for (float blueHist = Math.Max(0,blue-stepSize+1); blueHist < Math.Min(255,blueHist+stepSize); blueHist ++)
-                                {
 
+                                // 5- Euklidian distance self-multiply
+                                tmp1 = (red - pair[RCORD]) / stepSize;
+                                tmp2 = (green - pair[GCORD]) / stepSize;
+                                tmp3 = (blue - pair[BCORD]) / stepSize;
+                                weight = Math.Max(0, 1 - (float)Math.Sqrt(
+                                    (tmp1 * tmp1
+                                    + tmp2 * tmp2
+                                    + tmp3 * tmp3)
+                                    ));
 
-                                    // This could be way shorter but I wanted to try optimize the speed a little.
-                                    if (histogram3D[(int)redHist, (int)greenHist, (int)blueHist] != null)
-                                    {
+                                sum[R] += pair[R] * weight;
+                                sum[G] += pair[G] * weight;
+                                sum[B] += pair[B] * weight;
+                                divisor += weight;
 
-                                        // 1 - pseudodistance
-                                        //float weight = 1- (Math.Abs(red - redHist)/stepSize + Math.Abs(green - greenHist)/stepSize + Math.Abs(blue - blueHist)/stepSize)/3;
-
-                                        // 2 - euklidian distance
-                                        // This actually fixes major artifacts compared to the pseudodistance above.
-                                        //weight = Math.Max(0,1-(float)Math.Sqrt( (Math.Pow((red - redHist)/stepSize,2) + Math.Pow((green - greenHist)/stepSize,2) + Math.Pow((blue - blueHist)/stepSize,2))));
-
-                                        // 3 - euklidian distance - hacky optimized
-                                        // GARBAGE
-                                        //int myPower = 12;
-                                        //int myPowerOfTwo = 1 << myPower;
-                                        // weight = Math.Max(0,1-(float)Math.Sqrt((1 << (int)((red - redHist)/stepSize)) + 1 << ((int)((green - greenHist)/stepSize)) + 1 << ((int)((blue - blueHist)/stepSize))));
-
-                                        // 4 - euklidian distance Blitzpow
-                                        //GARBAGE TOO
-                                        //weight = Math.Max(0,1-(float)Math.Sqrt( (Helpers.BlitzPow((red - redHist)/stepSize,2) + Helpers.BlitzPow((green - greenHist)/stepSize,2) + Helpers.BlitzPow((blue - blueHist)/stepSize,2))));
-
-                                        // 5- Euklidian distance self-multiply
-                                        tmp1 = (red - redHist) / stepSize;
-                                        tmp2 = (green - greenHist) / stepSize;
-                                        tmp3 = (blue - blueHist) / stepSize;
-                                        weight = Math.Max(0, 1 - (float)Math.Sqrt(
-                                            (tmp1 * tmp1
-                                            + tmp2 * tmp2
-                                            + tmp3 * tmp3)
-                                            ));
-
-                                        histogramCount = histogram3D[(int)redHist, (int)greenHist, (int)blueHist].Count;
-                                        if (histogramCount == 1)
-                                        {
-                                            
-                                            sum[R] += histogram3D[(int)redHist, (int)greenHist, (int)blueHist][0][R] * weight;
-                                            sum[G] += histogram3D[(int)redHist, (int)greenHist, (int)blueHist][0][G] * weight;
-                                            sum[B] += histogram3D[(int)redHist, (int)greenHist, (int)blueHist][0][B] * weight;
-                                            divisor += weight;
-                                        } else
-                                        {
-                                            tmpsum = new double[3] { 0, 0, 0 };
-                                            foreach (int[] referenceValue in histogram3D[(int)redHist, (int)greenHist, (int)blueHist])
-                                            {
-
-                                                tmpsum[R] += referenceValue[R];
-                                                tmpsum[G] += referenceValue[G];
-                                                tmpsum[B] += referenceValue[B];
-                                            }
-                                            sum[R] += tmpsum[R] * weight;
-                                            sum[G] += tmpsum[G] * weight;
-                                            sum[B] += tmpsum[B] * weight;
-                                            divisor += weight * histogramCount;
-                                        }
-                                        
-                                    }
-                                    
-
-
-                                    count++;
-                                }
                             }
+                            count++;
                         }
 
                         cube[redQuadrant, greenQuadrant, blueQuadrant] = new float[3] { (float)sum[R]/divisor, (float)sum[G]/divisor, (float)sum[B]/divisor };
@@ -412,10 +386,19 @@ namespace ColorMatch3D
                 }
             }
 
+            durations.Add(watch.ElapsedMilliseconds);
 
-            progress.Report(new MatchReport(count.ToString("#,##0"),false,cube));
+            string durationString = "";
+            foreach(long duration in durations)
+            {
+                durationString += duration.ToString() + " ms ";
+            }
+
+            progress.Report(new MatchReport(count.ToString("#,##0")+" iters, "+durationString,false,cube));
 
         }
+
+
 
         private media.Brush redBackground = new media.SolidColorBrush(media.Color.FromRgb(255,0,0));
         private media.Brush transparentBackground = new media.SolidColorBrush(media.Color.FromArgb(0,0,0,0));
