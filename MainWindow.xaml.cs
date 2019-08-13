@@ -194,6 +194,25 @@ namespace ColorMatch3D
         const int GCORD = 4;
         const int BCORD = 5;
 
+
+        struct ColorPair
+        {
+            public int R, G, B, RCORD, GCORD, BCORD;
+        };
+
+        /*internal unsafe struct Int32Buffer
+        {
+            private int _e00, _e02, _e03, _e04, _e05;
+
+            public ref int this[int index]
+            {
+                get
+                {
+                    fixed (int* p = &_e00) return ref p[index];
+                }
+            }
+        }*/
+
         // The actual colormatching.
         private void DoColorMatch_Worker(IProgress<MatchReport> progress,Bitmap testImage, Bitmap referenceImage)
         {
@@ -281,22 +300,28 @@ namespace ColorMatch3D
             float stepSize = 255 / (float)steps;
             int stepR, stepG, stepB;
             int trueStepR, trueStepG, trueStepB;
-            int[] thisPoint;
+            ColorPair thisPoint  = new ColorPair();
             int rAround, gAround, bAround;
 
-            List<int[]>[,,] collectCube = new List<int[]>[outputValueCount,outputValueCount,outputValueCount];
+            List<ColorPair>[,,] collectCube = new List<ColorPair>[outputValueCount,outputValueCount,outputValueCount];
 
             // Build full histogram
             for (var x = 0; x < resX; x++)
             {
                 for (var y = 0; y < resY; y++)
                 {
-                    
+
                     // set preCube (massive speedup later)
                     stepR = (int)Math.Round(testImgData[x, y, R] / stepSize);
                     stepG = (int)Math.Round(testImgData[x, y, G] / stepSize);
                     stepB = (int)Math.Round(testImgData[x, y, B] / stepSize);
-                    thisPoint = new int[6] {  refImgData[x, y, R], refImgData[x, y, G], refImgData[x, y, B], testImgData[x, y, R], testImgData[x, y, G], testImgData[x, y, B] };
+                    //thisPoint = new ColorPair {  refImgData[x, y, R], refImgData[x, y, G], refImgData[x, y, B], testImgData[x, y, R], testImgData[x, y, G], testImgData[x, y, B] };
+                    thisPoint.R = refImgData[x, y, R];
+                    thisPoint.G = refImgData[x, y, G];
+                    thisPoint.B = refImgData[x, y, B];
+                    thisPoint.RCORD = testImgData[x, y, R];
+                    thisPoint.GCORD = testImgData[x, y, G];
+                    thisPoint.BCORD = testImgData[x, y, B];
                     for (rAround = -1; rAround <= 1; rAround++)
                     {
                         for (gAround = -1; gAround <= 1; gAround++)
@@ -308,7 +333,7 @@ namespace ColorMatch3D
                                 trueStepB = Math.Max(0, Math.Min(steps, stepB + bAround));
                                 if(collectCube[trueStepR, trueStepG, trueStepB] == null)
                                 {
-                                    collectCube[trueStepR, trueStepG, trueStepB] = new List<int[]>();
+                                    collectCube[trueStepR, trueStepG, trueStepB] = new List<ColorPair>();
                                 }
                                 collectCube[trueStepR, trueStepG, trueStepB].Add(thisPoint);
                             }
@@ -331,7 +356,7 @@ namespace ColorMatch3D
             float divisor;
             int redQuadrant, greenQuadrant, blueQuadrant;
             float red, green, blue;
-            List<int[]> collectCubeHere;
+            List<ColorPair> collectCubeHere;
 
             for(red = 0;  ((int)red) <= 255; red+= stepSize)
             {
@@ -356,22 +381,22 @@ namespace ColorMatch3D
 
                             collectCubeHere = collectCube[redQuadrant, greenQuadrant, blueQuadrant];
 
-                            foreach(int[] pair in collectCubeHere)
+                            foreach(ColorPair pair in collectCubeHere)
                             {
 
                                 // 5- Euklidian distance self-multiply
-                                tmp1 = (red - pair[RCORD]) / stepSize;
-                                tmp2 = (green - pair[GCORD]) / stepSize;
-                                tmp3 = (blue - pair[BCORD]) / stepSize;
+                                tmp1 = (red - pair.RCORD) / stepSize;
+                                tmp2 = (green - pair.GCORD) / stepSize;
+                                tmp3 = (blue - pair.BCORD) / stepSize;
                                 weight = Math.Max(0, 1 - (float)Math.Sqrt(
                                     (tmp1 * tmp1
                                     + tmp2 * tmp2
                                     + tmp3 * tmp3)
                                     ));
 
-                                sum[R] += pair[R] * weight;
-                                sum[G] += pair[G] * weight;
-                                sum[B] += pair[B] * weight;
+                                sum[R] += pair.R * weight;
+                                sum[G] += pair.G * weight;
+                                sum[B] += pair.B * weight;
                                 divisor += weight;
 
                             }
@@ -387,6 +412,8 @@ namespace ColorMatch3D
             }
 
             durations.Add(watch.ElapsedMilliseconds);
+
+            watch.Stop();
 
             string durationString = "";
             foreach(long duration in durations)
