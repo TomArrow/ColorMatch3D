@@ -351,8 +351,7 @@ namespace ColorMatch3D
             double count = 0;
             float weight;
             float tmp1, tmp2, tmp3;
-            int histogramCount;
-            double[] sum, tmpsum;
+            double[] sum;
             float divisor;
             int redQuadrant, greenQuadrant, blueQuadrant;
             float red, green, blue;
@@ -388,7 +387,7 @@ namespace ColorMatch3D
                                 tmp1 = (red - pair.RCORD) / stepSize;
                                 tmp2 = (green - pair.GCORD) / stepSize;
                                 tmp3 = (blue - pair.BCORD) / stepSize;
-                                weight = Math.Max(0, 1 - (float)Math.Sqrt(
+                                weight = Math.Max(0, 1f - (float)Math.Sqrt(
                                     (tmp1 * tmp1
                                     + tmp2 * tmp2
                                     + tmp3 * tmp3)
