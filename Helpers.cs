@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Drawing;
 using System.Windows.Media.Imaging;
 using System.IO;
+using System.Runtime.CompilerServices;
 
 namespace ColorMatch3D
 {
@@ -27,6 +28,17 @@ namespace ColorMatch3D
                 return bitmapimage;
             }
         }
+
+        // from: https://martin.ankerl.com/2007/10/04/optimized-pow-approximation-for-java-and-c-c/
+        // sadly garbage (doesn't work)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static double BlitzPow(double a, double b)
+        {
+            int tmp = (int)(BitConverter.DoubleToInt64Bits(a) >> 32);
+            int tmp2 = (int)(b * (tmp - 1072632447) + 1072632447);
+            return BitConverter.Int64BitsToDouble(((long)tmp2) << 32);
+        }
+
 
         static public string matrixToString<T>(T[,] matrix)
         {

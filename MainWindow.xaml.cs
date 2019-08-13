@@ -187,6 +187,8 @@ namespace ColorMatch3D
 
         private enum DOWNSCALE { DEFAULT,NN}
 
+        int outputValueCount = 32;
+
         // The actual colormatching.
         private void DoColorMatch_Worker(IProgress<MatchReport> progress,Bitmap testImage, Bitmap referenceImage)
         {
@@ -262,18 +264,19 @@ namespace ColorMatch3D
 
 
             // Build 32x32x32 cube data ( TODO later make the precision flexible)
-            int outputValueCount = 32;
             int steps = outputValueCount - 1;
-            float stepSize = 255 / steps;
+            float stepSize = 255 / (float)steps;
             float[,,][] cube = new float[outputValueCount, outputValueCount, outputValueCount][];
             double count = 0;
             float weight;
+            float tmp1, tmp2, tmp3;
 
-            for(float red = 0;  red <= 255; red+= stepSize)
+            for(float red = 0;  ((int)red) <= 255; red+= stepSize)
             {
-                for (float green = 0; green <= 255; green += stepSize)
+
+                for (float green = 0; ((int)green) <= 255; green += stepSize)
                 {
-                    for (float blue = 0; blue <= 255; blue += stepSize)
+                    for (float blue = 0; ((int)blue) <= 255; blue += stepSize)
                     {
                         // Now go through all surrounding values in the 3D histogram and calculate a weighed average (or later median maybe). If the distance is stepSize, weight is 0, if distance is 0, weight is 1
                         // Interpolation will be an average of the linear 1-dimensional distances. (not sure if that's ideal tbh)
@@ -293,18 +296,39 @@ namespace ColorMatch3D
 
                                     // 2 - euklidian distance
                                     // This actually fixes major artifacts compared to the pseudodistance above.
-                                    weight = Math.Max(0,1-(float)Math.Sqrt( (Math.Pow((red - redHist)/stepSize,2) + Math.Pow((green - greenHist)/stepSize,2) + Math.Pow((blue - blueHist)/stepSize,2))));
+                                    //weight = Math.Max(0,1-(float)Math.Sqrt( (Math.Pow((red - redHist)/stepSize,2) + Math.Pow((green - greenHist)/stepSize,2) + Math.Pow((blue - blueHist)/stepSize,2))));
+
+                                    // 3 - euklidian distance - hacky optimized
+                                    // GARBAGE
+                                    //int myPower = 12;
+                                    //int myPowerOfTwo = 1 << myPower;
+                                    // weight = Math.Max(0,1-(float)Math.Sqrt((1 << (int)((red - redHist)/stepSize)) + 1 << ((int)((green - greenHist)/stepSize)) + 1 << ((int)((blue - blueHist)/stepSize))));
+
+                                    // 4 - euklidian distance Blitzpow
+                                    //GARBAGE TOO
+                                    //weight = Math.Max(0,1-(float)Math.Sqrt( (Helpers.BlitzPow((red - redHist)/stepSize,2) + Helpers.BlitzPow((green - greenHist)/stepSize,2) + Helpers.BlitzPow((blue - blueHist)/stepSize,2))));
+
+                                    // 5- Euklidian distance self-multiply
+                                    tmp1 = (red - redHist) / stepSize;
+                                    tmp2 = (green - greenHist) / stepSize;
+                                    tmp3 = (blue - blueHist) / stepSize;
+                                    weight = Math.Max(0, 1 - (float)Math.Sqrt(
+                                        (tmp1 * tmp1
+                                        + tmp2 * tmp2
+                                        + tmp3 * tmp3)
+                                        ));
+
 
                                     if (histogram3D[(int)redHist, (int)greenHist, (int)blueHist] != null)
                                     {
-                                        foreach(int[] referenceValue in histogram3D[(int)redHist, (int)greenHist, (int)blueHist])
+                                        foreach (int[] referenceValue in histogram3D[(int)redHist, (int)greenHist, (int)blueHist])
                                         {
 
                                             sum[R] += referenceValue[R] * weight;
                                             sum[G] += referenceValue[G] * weight;
                                             sum[B] += referenceValue[B] * weight;
-                                            divisor += weight;
                                         }
+                                        divisor += weight * histogram3D[(int)redHist, (int)greenHist, (int)blueHist].Count;
                                     }
                                     
 
@@ -358,8 +382,7 @@ namespace ColorMatch3D
 
             SaveFileDialog sfd = new SaveFileDialog();
             sfd.Filter = "CUBE 3D LUT (.cube)|*.cube";
-
-            int outputValueCount = 32;
+            
             int steps = outputValueCount - 1;
             float stepSize = 255 / steps;
 
