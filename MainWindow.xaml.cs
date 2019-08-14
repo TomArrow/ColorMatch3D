@@ -219,7 +219,6 @@ namespace ColorMatch3D
         {
             public double totalR,totalG,totalB;
             public float divisor;
-            public float valueR, valueG, valueB;
         };
 
         struct ColorPairData
@@ -341,9 +340,10 @@ namespace ColorMatch3D
 
             int collectCubeLinearIndex = 0;
             // Build full histogram
-            for (var x = 0; x < resX; x++)
+
+            for (var y = 0; y < resY; y++)
             {
-                for (var y = 0; y < resY; y++)
+                for (var x = 0; x < resX; x++)
                 {
 
 
@@ -366,21 +366,17 @@ namespace ColorMatch3D
 
                 }
 
-                progress.Report(new MatchReport("Building histogram [" + x + ", x], "));
+                progress.Report(new MatchReport("Building histogram [" + ((float)y*resX/pixelCount*100).ToString("#.##") + "%] "));
             }
 
             durations.Add(watch.ElapsedMilliseconds);
 
             // Build 32x32x32 cube data ( TODO later make the precision flexible)
             AverageData[,,] tmpCube = new AverageData[outputValueCount, outputValueCount, outputValueCount];
-            double count = 0;
+            UInt64 count = 0;
             float weight;
             float tmp1, tmp2, tmp3;
-            double[] sum;
-            float divisor;
             int redQuadrant, greenQuadrant, blueQuadrant;
-            float red, green, blue;
-            List<ColorPair> collectCubeHere;
 
             float sqrtOf3 = (float)Math.Sqrt(3);
             AverageData tmpAverageData = new AverageData();
@@ -397,18 +393,18 @@ namespace ColorMatch3D
                 // This loop is currently the bottleneck.
                 for (rAround = -1; rAround <= 1; rAround++)
                 {
+                    trueStepR = Math.Max(0, Math.Min(steps, redQuadrant + rAround));
                     for (gAround = -1; gAround <= 1; gAround++)
                     {
+                        trueStepG = Math.Max(0, Math.Min(steps, greenQuadrant + gAround));
                         for (bAround = -1; bAround <= 1; bAround++)
                         {
-                            trueStepR = Math.Max(0, Math.Min(steps, redQuadrant + rAround));
-                            trueStepG = Math.Max(0, Math.Min(steps, greenQuadrant + gAround));
                             trueStepB = Math.Max(0, Math.Min(steps, blueQuadrant + bAround));
 
                             // 5- Euklidian distance self-multiply
-                            tmp1 = (trueStepR * stepSize - collectCubeLinearHere.RCORD) / stepSize;
-                            tmp2 = (trueStepG * stepSize - collectCubeLinearHere.GCORD) / stepSize;
-                            tmp3 = (trueStepB * stepSize - collectCubeLinearHere.BCORD) / stepSize;
+                            tmp1 = (trueStepR - collectCubeLinearHere.RCORD / stepSize) ;
+                            tmp2 = (trueStepG - collectCubeLinearHere.GCORD / stepSize) ;
+                            tmp3 = (trueStepB - collectCubeLinearHere.BCORD / stepSize) ;
                             weight = Math.Max(0, sqrtOf3 - (float)Math.Sqrt(
                                 (tmp1 * tmp1
                                 + tmp2 * tmp2
@@ -422,13 +418,19 @@ namespace ColorMatch3D
                             tmpAverageData.totalG += collectCubeLinearHere.G * weight;
                             tmpAverageData.totalB += collectCubeLinearHere.B * weight;
                             tmpAverageData.divisor += weight;
-                            tmpAverageData.valueR = (float)tmpAverageData.totalR / tmpAverageData.divisor;
-                            tmpAverageData.valueG = (float)tmpAverageData.totalG / tmpAverageData.divisor;
-                            tmpAverageData.valueB = (float)tmpAverageData.totalB / tmpAverageData.divisor;
+                            //tmpAverageData.valueR = (float)tmpAverageData.totalR / tmpAverageData.divisor;
+                            //tmpAverageData.valueG = (float)tmpAverageData.totalG / tmpAverageData.divisor;
+                            //tmpAverageData.valueB = (float)tmpAverageData.totalB / tmpAverageData.divisor;
 
                             tmpCube[trueStepR, trueStepG, trueStepB] = tmpAverageData;
                         }
                     }
+                }
+
+                if(count%50000 == 0)
+                {
+
+                    progress.Report(new MatchReport("Building cube [" + (((double)count/(pixelCount))*100).ToString("#.##") + "%] "));
                 }
             }
 
@@ -449,9 +451,9 @@ namespace ColorMatch3D
                     for (blueQuadrant = 0; blueQuadrant < outputValueCount; blueQuadrant++)
                     {
                         tmpAverageData = tmpCube[redQuadrant, greenQuadrant, blueQuadrant];
-                        tmpFloatColor.R = tmpAverageData.valueR;
-                        tmpFloatColor.G = tmpAverageData.valueG;
-                        tmpFloatColor.B = tmpAverageData.valueB;
+                        tmpFloatColor.R = (float)tmpAverageData.totalR / tmpAverageData.divisor;
+                        tmpFloatColor.G = (float)tmpAverageData.totalG / tmpAverageData.divisor;
+                        tmpFloatColor.B = (float)tmpAverageData.totalB / tmpAverageData.divisor;
                         cube[redQuadrant, greenQuadrant, blueQuadrant] = tmpFloatColor;
                     }
                 }
