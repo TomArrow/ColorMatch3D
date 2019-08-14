@@ -11,9 +11,9 @@ namespace ColorMatch3D
 
         public string message = "";
         public bool error = false;
-        public float[,,][] cube = null;
+        public FloatColor[,,] cube = null;
 
-        public MatchReport(string Amessage, bool Aerror = false, float[,,][] cubeA = null)
+        public MatchReport(string Amessage, bool Aerror = false, FloatColor[,,] cubeA = null)
         {
             message = Amessage;
             error = Aerror;

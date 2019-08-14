@@ -20,6 +20,12 @@ using Be.IO;
 
 namespace ColorMatch3D
 {
+
+    struct FloatColor
+    {
+        public float R, G, B;
+    }
+
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
@@ -72,7 +78,7 @@ namespace ColorMatch3D
         }
 
         private Task ColorMatchTask;
-        private float[,,][] cube = null;
+        private FloatColor[,,] cube = null;
         
         // ColorMatch caller
         private async void DoColorMatch()
@@ -116,8 +122,12 @@ namespace ColorMatch3D
 
         private CancellationTokenSource _cancelRegrade = new CancellationTokenSource();
 
-        /*private async void  RegradeImage(float[,] matrix)
+
+        //defunct
+        private async void  RegradeImage(float[,] matrix)
         {
+            return;
+            /*
             _cancelRegrade.Cancel();
 
             _cancelRegrade = new CancellationTokenSource();
@@ -146,11 +156,14 @@ namespace ColorMatch3D
             {
                 //Nothing
             }
+            */
             
         }
 
+        // defunct
         private BitmapSource DoRegrade_Worker(float[,] matrix, float testGamma, float workGamma, Bitmap testImage,CancellationToken token)
         {
+            return Helpers.BitmapToImageSource(testImage);
             Bitmap regradedImage = new Bitmap(testImage);
             int width = regradedImage.Width;
             int height = regradedImage.Height;
@@ -183,7 +196,7 @@ namespace ColorMatch3D
             token.ThrowIfCancellationRequested();
             result.Freeze();
             return result;
-        }*/
+        }
 
         private enum DOWNSCALE { DEFAULT,NN}
 
@@ -195,9 +208,24 @@ namespace ColorMatch3D
         const int BCORD = 5;
 
 
+        
+
         struct ColorPair
         {
             public int R, G, B, RCORD, GCORD, BCORD;
+        };
+
+        struct AverageData
+        {
+            public double totalR,totalG,totalB;
+            public float divisor;
+            public float valueR, valueG, valueB;
+        };
+
+        struct ColorPairData
+        {
+            public byte R, G, B, RCORD, GCORD, BCORD;
+            public byte nearestQuadrantR, nearestQuadrantG, nearestQuadrantB;
         };
 
         /*internal unsafe struct Int32Buffer
@@ -234,8 +262,8 @@ namespace ColorMatch3D
 
             int resX = testImage.Width, resY = testImage.Height;
 
-            int[,,] testImgData = new int[resX, resY, 3];
-            int[,,] refImgData = new int[resX, resY, 3];
+            byte[,,] testImgData = new byte[resX, resY, 3];
+            byte[,,] refImgData = new byte[resX, resY, 3];
 
             // 3D Histogram.
             // Each possible color in a 256x256x256 RGB colorspace has one entry.
@@ -300,49 +328,42 @@ namespace ColorMatch3D
 
             int steps = outputValueCount - 1;
             float stepSize = 255 / (float)steps;
-            int stepR, stepG, stepB;
+            byte stepR, stepG, stepB;
             int trueStepR, trueStepG, trueStepB;
             ColorPair thisPoint  = new ColorPair();
+            ColorPairData thisPointLinear  = new ColorPairData();
             int rAround, gAround, bAround;
 
-            List<ColorPair>[,,] collectCube = new List<ColorPair>[outputValueCount,outputValueCount,outputValueCount];
 
-            
 
+            int pixelCount = resX * resY;
+            ColorPairData[] collectCubeLinear = new ColorPairData[pixelCount];
+
+            int collectCubeLinearIndex = 0;
             // Build full histogram
             for (var x = 0; x < resX; x++)
             {
                 for (var y = 0; y < resY; y++)
                 {
 
+
                     // set preCube (massive speedup later)
-                    stepR = (int)Math.Round(testImgData[x, y, R] / stepSize);
-                    stepG = (int)Math.Round(testImgData[x, y, G] / stepSize);
-                    stepB = (int)Math.Round(testImgData[x, y, B] / stepSize);
-                    //thisPoint = new ColorPair {  refImgData[x, y, R], refImgData[x, y, G], refImgData[x, y, B], testImgData[x, y, R], testImgData[x, y, G], testImgData[x, y, B] };
-                    thisPoint.R = refImgData[x, y, R];
-                    thisPoint.G = refImgData[x, y, G];
-                    thisPoint.B = refImgData[x, y, B];
-                    thisPoint.RCORD = testImgData[x, y, R];
-                    thisPoint.GCORD = testImgData[x, y, G];
-                    thisPoint.BCORD = testImgData[x, y, B];
-                    for (rAround = -1; rAround <= 1; rAround++)
-                    {
-                        for (gAround = -1; gAround <= 1; gAround++)
-                        {
-                            for (bAround = -1; bAround <= 1; bAround++)
-                            {
-                                trueStepR = Math.Max(0, Math.Min(steps, stepR + rAround));
-                                trueStepG = Math.Max(0, Math.Min(steps, stepG + gAround));
-                                trueStepB = Math.Max(0, Math.Min(steps, stepB + bAround));
-                                if(collectCube[trueStepR, trueStepG, trueStepB] == null)
-                                {
-                                    collectCube[trueStepR, trueStepG, trueStepB] = new List<ColorPair>();
-                                }
-                                collectCube[trueStepR, trueStepG, trueStepB].Add(thisPoint);
-                            }
-                        }
-                    }
+                    stepR = (byte)Math.Round(testImgData[x, y, R] / stepSize);
+                    stepG = (byte)Math.Round(testImgData[x, y, G] / stepSize);
+                    stepB = (byte)Math.Round(testImgData[x, y, B] / stepSize);
+                    
+                    thisPointLinear.R = refImgData[x, y, R];
+                    thisPointLinear.G = refImgData[x, y, G];
+                    thisPointLinear.B = refImgData[x, y, B];
+                    thisPointLinear.RCORD = testImgData[x, y, R];
+                    thisPointLinear.GCORD = testImgData[x, y, G];
+                    thisPointLinear.BCORD = testImgData[x, y, B];
+                    thisPointLinear.nearestQuadrantR = stepR;
+                    thisPointLinear.nearestQuadrantG = stepG;
+                    thisPointLinear.nearestQuadrantB = stepB;
+                    collectCubeLinear[collectCubeLinearIndex++] = thisPointLinear;
+                    
+
                 }
 
                 progress.Report(new MatchReport("Building histogram [" + x + ", x], "));
@@ -351,7 +372,7 @@ namespace ColorMatch3D
             durations.Add(watch.ElapsedMilliseconds);
 
             // Build 32x32x32 cube data ( TODO later make the precision flexible)
-            float[,,][] cube = new float[outputValueCount, outputValueCount, outputValueCount][];
+            AverageData[,,] tmpCube = new AverageData[outputValueCount, outputValueCount, outputValueCount];
             double count = 0;
             float weight;
             float tmp1, tmp2, tmp3;
@@ -362,59 +383,80 @@ namespace ColorMatch3D
             List<ColorPair> collectCubeHere;
 
             float sqrtOf3 = (float)Math.Sqrt(3);
+            AverageData tmpAverageData = new AverageData();
 
-            for (red = 0;  ((int)red) <= 255; red+= stepSize)
+            foreach(ColorPairData collectCubeLinearHere in collectCubeLinear)
             {
-                redQuadrant = (int)Math.Round(red / stepSize);
-                for (green = 0; ((int)green) <= 255; green += stepSize)
+                redQuadrant = collectCubeLinearHere.nearestQuadrantR;
+                greenQuadrant = collectCubeLinearHere.nearestQuadrantG;
+                blueQuadrant = collectCubeLinearHere.nearestQuadrantB;
+                                
+                
+
+                count++;
+                // This loop is currently the bottleneck.
+                for (rAround = -1; rAround <= 1; rAround++)
                 {
-                    greenQuadrant = (int)Math.Round(green / stepSize);
-                    for (blue = 0; ((int)blue) <= 255; blue += stepSize)
+                    for (gAround = -1; gAround <= 1; gAround++)
                     {
-                        blueQuadrant = (int)Math.Round(blue / stepSize);
-
-
-                        // Now go through all surrounding values in the 3D histogram and calculate a weighed average (or later median maybe). If the distance is stepSize, weight is 0, if distance is 0, weight is 1
-                        // Interpolation will be an average of the linear 1-dimensional distances. (not sure if that's ideal tbh)
-                        // Is that biliniear? I'm not sure
-
-                        sum = new double[3] { 0, 0, 0 };
-                        divisor = 0;
-                        
-                        if (collectCube[redQuadrant,greenQuadrant,blueQuadrant] != null)
+                        for (bAround = -1; bAround <= 1; bAround++)
                         {
+                            trueStepR = Math.Max(0, Math.Min(steps, redQuadrant + rAround));
+                            trueStepG = Math.Max(0, Math.Min(steps, greenQuadrant + gAround));
+                            trueStepB = Math.Max(0, Math.Min(steps, blueQuadrant + bAround));
 
-                            collectCubeHere = collectCube[redQuadrant, greenQuadrant, blueQuadrant];
+                            // 5- Euklidian distance self-multiply
+                            tmp1 = (trueStepR * stepSize - collectCubeLinearHere.RCORD) / stepSize;
+                            tmp2 = (trueStepG * stepSize - collectCubeLinearHere.GCORD) / stepSize;
+                            tmp3 = (trueStepB * stepSize - collectCubeLinearHere.BCORD) / stepSize;
+                            weight = Math.Max(0, sqrtOf3 - (float)Math.Sqrt(
+                                (tmp1 * tmp1
+                                + tmp2 * tmp2
+                                + tmp3 * tmp3)
+                                ));
 
-                            foreach(ColorPair pair in collectCubeHere)
-                            {
 
-                                // 5- Euklidian distance self-multiply
-                                tmp1 = (red - pair.RCORD) / stepSize;
-                                tmp2 = (green - pair.GCORD) / stepSize;
-                                tmp3 = (blue - pair.BCORD) / stepSize;
-                                weight = Math.Max(0, sqrtOf3 - (float)Math.Sqrt(
-                                    (tmp1 * tmp1
-                                    + tmp2 * tmp2
-                                    + tmp3 * tmp3)
-                                    ));
+                            tmpAverageData = tmpCube[trueStepR, trueStepG, trueStepB];
 
-                                sum[R] += pair.R * weight;
-                                sum[G] += pair.G * weight;
-                                sum[B] += pair.B * weight;
-                                divisor += weight;
+                            tmpAverageData.totalR += collectCubeLinearHere.R * weight;
+                            tmpAverageData.totalG += collectCubeLinearHere.G * weight;
+                            tmpAverageData.totalB += collectCubeLinearHere.B * weight;
+                            tmpAverageData.divisor += weight;
+                            tmpAverageData.valueR = (float)tmpAverageData.totalR / tmpAverageData.divisor;
+                            tmpAverageData.valueG = (float)tmpAverageData.totalG / tmpAverageData.divisor;
+                            tmpAverageData.valueB = (float)tmpAverageData.totalB / tmpAverageData.divisor;
 
-                            }
-                            count++;
+                            tmpCube[trueStepR, trueStepG, trueStepB] = tmpAverageData;
                         }
-
-                        cube[redQuadrant, greenQuadrant, blueQuadrant] = new float[3] { (float)sum[R]/divisor, (float)sum[G]/divisor, (float)sum[B]/divisor };
-
                     }
-
-                    progress.Report(new MatchReport("Building cube [" + red + "," + green+", x], "+count.ToString("#,##0")));
                 }
             }
+
+
+            durations.Add(watch.ElapsedMilliseconds);
+
+
+
+            FloatColor[,,] cube = new FloatColor[outputValueCount, outputValueCount, outputValueCount];
+            FloatColor tmpFloatColor;
+
+            // transfer tmpCube to normal cube
+            // May seem slow from the code but actually only takes about 1 ms, it's ridiculously fast.
+            for (redQuadrant = 0; redQuadrant<outputValueCount; redQuadrant++)
+            {
+                for (greenQuadrant = 0; greenQuadrant < outputValueCount; greenQuadrant++)
+                {
+                    for (blueQuadrant = 0; blueQuadrant < outputValueCount; blueQuadrant++)
+                    {
+                        tmpAverageData = tmpCube[redQuadrant, greenQuadrant, blueQuadrant];
+                        tmpFloatColor.R = tmpAverageData.valueR;
+                        tmpFloatColor.G = tmpAverageData.valueG;
+                        tmpFloatColor.B = tmpAverageData.valueB;
+                        cube[redQuadrant, greenQuadrant, blueQuadrant] = tmpFloatColor;
+                    }
+                }
+            }
+
 
             durations.Add(watch.ElapsedMilliseconds);
 
@@ -483,9 +525,9 @@ namespace ColorMatch3D
                             /*red = float.IsNaN(cube[r, g, b][R]) ? r*stepSize/255 : cube[r, g, b][R]/255;
                             green = float.IsNaN(cube[r, g, b][G]) ? g * stepSize/255 : cube[r, g, b][G]/255;
                             blue = float.IsNaN(cube[r, g, b][B]) ? b * stepSize/255 : cube[r, g, b][B]/255;*/
-                            red = float.IsNaN(cube[r, g, b][R]) ? 0 : cube[r, g, b][R]/255;
-                            green = float.IsNaN(cube[r, g, b][G]) ?0 : cube[r, g, b][G]/255;
-                            blue = float.IsNaN(cube[r, g, b][B]) ? 0 : cube[r, g, b][B]/255;
+                            red = float.IsNaN(cube[r, g, b].R) ? 0 : cube[r, g, b].R/255;
+                            green = float.IsNaN(cube[r, g, b].G) ?0 : cube[r, g, b].G/255;
+                            blue = float.IsNaN(cube[r, g, b].B) ? 0 : cube[r, g, b].B/255;
                             luttext += red + " " + green + " " + blue+"\n";
                         }
                     }
