@@ -307,6 +307,8 @@ namespace ColorMatch3D
 
             List<ColorPair>[,,] collectCube = new List<ColorPair>[outputValueCount,outputValueCount,outputValueCount];
 
+            
+
             // Build full histogram
             for (var x = 0; x < resX; x++)
             {
