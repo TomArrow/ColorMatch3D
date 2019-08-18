@@ -41,7 +41,6 @@ namespace ColorMatch3D
         const int B = 2;
 
         private Bitmap testImage = null;
-        private Bitmap regradedImage = null;
         private Bitmap referenceImage = null;
 
         float displayGamma = 2.2f;
@@ -90,8 +89,6 @@ namespace ColorMatch3D
                 return;
             }
 
-            float rangeMin, rangeMax, sliderRangeMin, sliderRangeMax, precision, workGamma, testGamma, refGamma;
-            int subdiv, resX, resY;
 
             try
             {
@@ -210,11 +207,6 @@ namespace ColorMatch3D
 
         
 
-        struct ColorPair
-        {
-            public int R, G, B, RCORD, GCORD, BCORD;
-        };
-
         struct AverageData
         {
             public double totalR,totalG,totalB;
@@ -257,7 +249,7 @@ namespace ColorMatch3D
             // TODO: Add "default linear" downscaler that corrects gamma before downscaling
             // TODO: add special downscaler that picks only useful pixels
             // TODO Add second special downscaler that isn't really a downscaler but one that picks most important colors including a slight average.
-            Bitmap resizedTestImage, resizedReferenceImage;
+            Bitmap resizedReferenceImage;
 
             int resX = testImage.Width, resY = testImage.Height;
 
@@ -329,7 +321,6 @@ namespace ColorMatch3D
             float stepSize = 255 / (float)steps;
             byte stepR, stepG, stepB;
             int trueStepR, trueStepG, trueStepB;
-            ColorPair thisPoint  = new ColorPair();
             ColorPairData thisPointLinear  = new ColorPairData();
             int rAround, gAround, bAround;
 
@@ -380,49 +371,77 @@ namespace ColorMatch3D
 
             float sqrtOf3 = (float)Math.Sqrt(3);
             AverageData tmpAverageData = new AverageData();
+            
+            bool simpleWeight = false;
+            float simpleWeightValue = sqrtOf3 - 1;
 
-            foreach(ColorPairData collectCubeLinearHere in collectCubeLinear)
+            float rCordNormalized, gCordNormalized, bCordNormalized;
+
+            // This loop is currently the bottleneck.
+            foreach (ColorPairData collectCubeLinearHere in collectCubeLinear)
             {
                 redQuadrant = collectCubeLinearHere.nearestQuadrantR;
                 greenQuadrant = collectCubeLinearHere.nearestQuadrantG;
                 blueQuadrant = collectCubeLinearHere.nearestQuadrantB;
-                                
-                
+
+                rCordNormalized = collectCubeLinearHere.RCORD / stepSize;
+                gCordNormalized = collectCubeLinearHere.GCORD / stepSize;
+                bCordNormalized = collectCubeLinearHere.BCORD / stepSize;
 
                 count++;
-                // This loop is currently the bottleneck.
                 for (rAround = -1; rAround <= 1; rAround++)
                 {
+                    if (rCordNormalized > redQuadrant && rAround == -1) continue; //major speed improvement but slight quality degradation
+                    if (rCordNormalized < redQuadrant  && rAround == 1) continue; //major speed improvement but slight quality degradation
                     trueStepR = Math.Max(0, Math.Min(steps, redQuadrant + rAround));
+                    tmp1 = (trueStepR - rCordNormalized);
+
                     for (gAround = -1; gAround <= 1; gAround++)
                     {
+                        if (gCordNormalized >  greenQuadrant && gAround == -1) continue; //major speed improvement but slight quality degradation
+                        if (gCordNormalized < greenQuadrant  && gAround == 1) continue; //major speed improvement but slight quality degradation
                         trueStepG = Math.Max(0, Math.Min(steps, greenQuadrant + gAround));
+                        tmp2 = (trueStepG - gCordNormalized);
+
                         for (bAround = -1; bAround <= 1; bAround++)
                         {
+                            if (bCordNormalized >  blueQuadrant && bAround == -1) continue; //major speed improvement but slight quality degradation
+                            if (bCordNormalized < blueQuadrant && bAround == 1) continue; //major speed improvement but slight quality degradation
                             trueStepB = Math.Max(0, Math.Min(steps, blueQuadrant + bAround));
-
-                            // 5- Euklidian distance self-multiply
-                            tmp1 = (trueStepR - collectCubeLinearHere.RCORD / stepSize) ;
-                            tmp2 = (trueStepG - collectCubeLinearHere.GCORD / stepSize) ;
-                            tmp3 = (trueStepB - collectCubeLinearHere.BCORD / stepSize) ;
-                            weight = Math.Max(0, sqrtOf3 - (float)Math.Sqrt(
-                                (tmp1 * tmp1
-                                + tmp2 * tmp2
-                                + tmp3 * tmp3)
-                                ));
+                            tmp3 = (trueStepB - bCordNormalized);
 
 
-                            tmpAverageData = tmpCube[trueStepR, trueStepG, trueStepB];
+                            if (simpleWeight)
+                            {
+                                weight = simpleWeightValue;
+                                simpleWeight = false;
+                            } else
+                            {
 
-                            tmpAverageData.totalR += collectCubeLinearHere.R * weight;
-                            tmpAverageData.totalG += collectCubeLinearHere.G * weight;
-                            tmpAverageData.totalB += collectCubeLinearHere.B * weight;
-                            tmpAverageData.divisor += weight;
+                                // 5- Euklidian distance self-multiply
+                                // can pretty safely skip the SQRT part actually, my experiments have shown that it makes pretty much zero visual difference
+                                /*weight = Math.Max(0, sqrtOf3 - (float)Math.Sqrt(
+                                    (tmp1 * tmp1
+                                    + tmp2 * tmp2
+                                    + tmp3 * tmp3)
+                                    ));*/
+                                weight = Math.Max(0, 3 - (float)(
+                                    (tmp1 * tmp1
+                                    + tmp2 * tmp2
+                                    + tmp3 * tmp3)
+                                    ));
+                            }
+
+
+
+                            tmpCube[trueStepR, trueStepG, trueStepB].totalR += collectCubeLinearHere.R * weight;
+                            tmpCube[trueStepR, trueStepG, trueStepB].totalG += collectCubeLinearHere.G * weight;
+                            tmpCube[trueStepR, trueStepG, trueStepB].totalB += collectCubeLinearHere.B * weight;
+                            tmpCube[trueStepR, trueStepG, trueStepB].divisor += weight;
                             //tmpAverageData.valueR = (float)tmpAverageData.totalR / tmpAverageData.divisor;
                             //tmpAverageData.valueG = (float)tmpAverageData.totalG / tmpAverageData.divisor;
                             //tmpAverageData.valueB = (float)tmpAverageData.totalB / tmpAverageData.divisor;
 
-                            tmpCube[trueStepR, trueStepG, trueStepB] = tmpAverageData;
                         }
                     }
                 }
@@ -444,6 +463,7 @@ namespace ColorMatch3D
 
             // transfer tmpCube to normal cube
             // May seem slow from the code but actually only takes about 1 ms, it's ridiculously fast.
+            AverageData averageHelper;
             for (redQuadrant = 0; redQuadrant<outputValueCount; redQuadrant++)
             {
                 for (greenQuadrant = 0; greenQuadrant < outputValueCount; greenQuadrant++)
@@ -451,10 +471,41 @@ namespace ColorMatch3D
                     for (blueQuadrant = 0; blueQuadrant < outputValueCount; blueQuadrant++)
                     {
                         tmpAverageData = tmpCube[redQuadrant, greenQuadrant, blueQuadrant];
-                        tmpFloatColor.R = (float)tmpAverageData.totalR / tmpAverageData.divisor;
-                        tmpFloatColor.G = (float)tmpAverageData.totalG / tmpAverageData.divisor;
-                        tmpFloatColor.B = (float)tmpAverageData.totalB / tmpAverageData.divisor;
-                        cube[redQuadrant, greenQuadrant, blueQuadrant] = tmpFloatColor;
+
+                        if (tmpAverageData.divisor == 0)
+                        {
+                            // Do this only if you skipped the arounds earlier. Maybe make this a "fast algo" option.
+                            // This part is pretty quick though, but it still doesn't eliminate artifacts completely.
+                            averageHelper = new AverageData();
+                            for (rAround = -1; rAround <= 1; rAround++)
+                            {
+                                trueStepR = Math.Max(0, Math.Min(steps, redQuadrant + rAround));
+                                for (gAround = -1; gAround <= 1; gAround++)
+                                {
+                                    trueStepG = Math.Max(0, Math.Min(steps, greenQuadrant + gAround));
+                                    for (bAround = -1; bAround <= 1; bAround++)
+                                    {
+                                        trueStepB = Math.Max(0, Math.Min(steps, blueQuadrant + bAround));
+                                        averageHelper.totalR += tmpCube[trueStepR, trueStepG, trueStepB].totalR;
+                                        averageHelper.totalG += tmpCube[trueStepR, trueStepG, trueStepB].totalG;
+                                        averageHelper.totalB += tmpCube[trueStepR, trueStepG, trueStepB].totalB;
+                                        averageHelper.divisor += tmpCube[trueStepR, trueStepG, trueStepB].divisor;
+                                    }
+                                }
+                            }
+                            tmpFloatColor.R = (float)averageHelper.totalR / averageHelper.divisor;
+                            tmpFloatColor.G = (float)averageHelper.totalG / averageHelper.divisor;
+                            tmpFloatColor.B = (float)averageHelper.totalB / averageHelper.divisor;
+                            cube[redQuadrant, greenQuadrant, blueQuadrant] = tmpFloatColor;
+                        }
+                        else
+                        {
+                            tmpFloatColor.R = (float)tmpAverageData.totalR / tmpAverageData.divisor;
+                            tmpFloatColor.G = (float)tmpAverageData.totalG / tmpAverageData.divisor;
+                            tmpFloatColor.B = (float)tmpAverageData.totalB / tmpAverageData.divisor;
+                            cube[redQuadrant, greenQuadrant, blueQuadrant] = tmpFloatColor;
+                        }
+
                     }
                 }
             }
