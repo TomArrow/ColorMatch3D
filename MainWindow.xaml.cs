@@ -9,6 +9,7 @@ using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using System.Threading;
 using System.Numerics;
+using Win = System.Windows;
 
 namespace ColorMatch3D
 {
@@ -29,6 +30,23 @@ namespace ColorMatch3D
             InitializeComponent();
             //Status_txt.Text = "SIMD: " + Vector.IsHardwareAccelerated.ToString();
         }
+
+        private void readGUISettings()
+        {
+            if(aggrAbsolute_radio.IsChecked == true)
+            {
+                aggregateWhat = AggregateVariable.ABSOLUTE;
+            }
+            if(aggrVector_radio.IsChecked == true)
+            {
+                aggregateWhat = AggregateVariable.VECTOR;
+            }
+
+            //Win.MessageBox.Show(aggregateWhat.ToString());
+        }
+
+        enum AggregateVariable { ABSOLUTE, VECTOR};
+        AggregateVariable aggregateWhat = AggregateVariable.VECTOR;
 
         const int R = 0;
         const int G = 1;
@@ -105,7 +123,7 @@ namespace ColorMatch3D
                 }
 
             });
-            ColorMatchTask = Task.Run(() => DoColorMatch_Worker(progress,testImage,referenceImage));
+            ColorMatchTask = Task.Run(() => DoColorMatch_Worker(progress,testImage,referenceImage,aggregateWhat));
             setStatus("Started...");
         }
 
@@ -231,7 +249,7 @@ namespace ColorMatch3D
 
 
         // The actual colormatching.
-        private void DoColorMatch_Worker(IProgress<MatchReport> progress,Bitmap testImage, Bitmap referenceImage)
+        private void DoColorMatch_Worker(IProgress<MatchReport> progress,Bitmap testImage, Bitmap referenceImage, AggregateVariable aggregateWhat)
         {
 
             var watch = System.Diagnostics.Stopwatch.StartNew();
@@ -345,6 +363,11 @@ namespace ColorMatch3D
                     thisPointLinear.cord.X = testImgData[x, y, R];
                     thisPointLinear.cord.Y = testImgData[x, y, G];
                     thisPointLinear.cord.Z = testImgData[x, y, B];
+
+                    if(aggregateWhat == AggregateVariable.VECTOR)
+                    {
+                        thisPointLinear.color = thisPointLinear.color - thisPointLinear.cord;
+                    }
 
                     /*thisPointLinear.R = refImgData[x, y, R];
                     thisPointLinear.G = refImgData[x, y, G];
@@ -470,15 +493,21 @@ namespace ColorMatch3D
             FloatColor[,,] cube = new FloatColor[outputValueCount, outputValueCount, outputValueCount];
             FloatColor tmpFloatColor;
 
+            tmpFloatColor.color = new Vector3(0, 0, 0);
+
             // transfer tmpCube to normal cube
             // May seem slow from the code but actually only takes about 1 ms, it's ridiculously fast.
             AverageData averageHelper;
+            Vector3 absCoord = new Vector3(0, 0, 0);
             for (redQuadrant = 0; redQuadrant<outputValueCount; redQuadrant++)
             {
+                absCoord.X = redQuadrant * stepSize;
                 for (greenQuadrant = 0; greenQuadrant < outputValueCount; greenQuadrant++)
                 {
+                    absCoord.Y = greenQuadrant * stepSize;
                     for (blueQuadrant = 0; blueQuadrant < outputValueCount; blueQuadrant++)
                     {
+                        absCoord.Z = blueQuadrant * stepSize;
                         tmpAverageData = tmpCube[redQuadrant, greenQuadrant, blueQuadrant];
 
                         if (tmpAverageData.divisor == 0)
@@ -500,7 +529,13 @@ namespace ColorMatch3D
                                     }
                                 }
                             }
-                            tmpFloatColor.color = averageHelper.color / averageHelper.divisor;
+                            if(aggregateWhat == AggregateVariable.ABSOLUTE)
+                            {
+                                tmpFloatColor.color = averageHelper.color / averageHelper.divisor;
+                            } else if(aggregateWhat == AggregateVariable.VECTOR)
+                            {
+                                tmpFloatColor.color = absCoord + (averageHelper.color / averageHelper.divisor);
+                            }
                             cube[redQuadrant, greenQuadrant, blueQuadrant] = tmpFloatColor;
                         }
                         else
@@ -508,7 +543,17 @@ namespace ColorMatch3D
                             /*tmpFloatColor.color.X = (float)tmpAverageData.color.X / tmpAverageData.divisor;
                             tmpFloatColor.color.Y = (float)tmpAverageData.color.Y / tmpAverageData.divisor;
                             tmpFloatColor.color.Z = (float)tmpAverageData.color.Z / tmpAverageData.divisor;*/
-                            cube[redQuadrant, greenQuadrant, blueQuadrant].color = tmpAverageData.color/tmpAverageData.divisor;
+
+                            if (aggregateWhat == AggregateVariable.ABSOLUTE)
+                            {
+
+                                cube[redQuadrant, greenQuadrant, blueQuadrant].color = tmpAverageData.color / tmpAverageData.divisor;
+                            }
+                            else if (aggregateWhat == AggregateVariable.VECTOR)
+                            {
+
+                                cube[redQuadrant, greenQuadrant, blueQuadrant].color = absCoord + tmpAverageData.color / tmpAverageData.divisor;
+                            }
                         }
 
                     }
@@ -593,6 +638,11 @@ namespace ColorMatch3D
 
                 File.WriteAllText(sfd.FileName, luttext);
             }
+        }
+
+        private void AggrVariable_radio_Checked(object sender, win.RoutedEventArgs e)
+        {
+            readGUISettings();
         }
 
 
