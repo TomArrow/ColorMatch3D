@@ -1,29 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.IO;
-using System.Text;
 using System.Threading.Tasks;
 using win = System.Windows;
 using System.Drawing;
-using controls = System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
 using media = System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using Microsoft.Win32;
 using System.Threading;
-using Be.IO;
+using System.Numerics;
 
 namespace ColorMatch3D
 {
 
     struct FloatColor
     {
-        public float R, G, B;
+        public Vector3 color;
+        //public float R, G, B;
     }
 
     /// <summary>
@@ -34,6 +27,7 @@ namespace ColorMatch3D
         public MainWindow()
         {
             InitializeComponent();
+            //Status_txt.Text = "SIMD: " + Vector.IsHardwareAccelerated.ToString();
         }
 
         const int R = 0;
@@ -209,13 +203,15 @@ namespace ColorMatch3D
 
         struct AverageData
         {
-            public double totalR,totalG,totalB;
+            //public double totalR,totalG,totalB;
+            public Vector3 color;
             public float divisor;
         };
 
         struct ColorPairData
         {
-            public byte R, G, B, RCORD, GCORD, BCORD;
+            //public byte R, G, B, RCORD, GCORD, BCORD;
+            public Vector3 color, cord;
             public byte nearestQuadrantR, nearestQuadrantG, nearestQuadrantB;
         };
 
@@ -343,12 +339,19 @@ namespace ColorMatch3D
                     stepG = (byte)Math.Round(testImgData[x, y, G] / stepSize);
                     stepB = (byte)Math.Round(testImgData[x, y, B] / stepSize);
                     
-                    thisPointLinear.R = refImgData[x, y, R];
+                    thisPointLinear.color.X = refImgData[x, y, R];
+                    thisPointLinear.color.Y = refImgData[x, y, G];
+                    thisPointLinear.color.Z = refImgData[x, y, B];
+                    thisPointLinear.cord.X = testImgData[x, y, R];
+                    thisPointLinear.cord.Y = testImgData[x, y, G];
+                    thisPointLinear.cord.Z = testImgData[x, y, B];
+
+                    /*thisPointLinear.R = refImgData[x, y, R];
                     thisPointLinear.G = refImgData[x, y, G];
                     thisPointLinear.B = refImgData[x, y, B];
                     thisPointLinear.RCORD = testImgData[x, y, R];
                     thisPointLinear.GCORD = testImgData[x, y, G];
-                    thisPointLinear.BCORD = testImgData[x, y, B];
+                    thisPointLinear.BCORD = testImgData[x, y, B];*/
                     thisPointLinear.nearestQuadrantR = stepR;
                     thisPointLinear.nearestQuadrantG = stepG;
                     thisPointLinear.nearestQuadrantB = stepB;
@@ -366,7 +369,8 @@ namespace ColorMatch3D
             AverageData[,,] tmpCube = new AverageData[outputValueCount, outputValueCount, outputValueCount];
             UInt64 count = 0;
             float weight;
-            float tmp1, tmp2, tmp3;
+            float tmp1, tmp2, tmp3,
+                tmp1sq,tmp2sq,tmp3sq;
             int redQuadrant, greenQuadrant, blueQuadrant;
 
             float sqrtOf3 = (float)Math.Sqrt(3);
@@ -374,8 +378,11 @@ namespace ColorMatch3D
             
             bool simpleWeight = false;
             float simpleWeightValue = sqrtOf3 - 1;
+            
+            Vector3 cordNormalized;
+            
 
-            float rCordNormalized, gCordNormalized, bCordNormalized;
+            // compiler explorer. check
 
             // This loop is currently the bottleneck.
             foreach (ColorPairData collectCubeLinearHere in collectCubeLinear)
@@ -384,32 +391,38 @@ namespace ColorMatch3D
                 greenQuadrant = collectCubeLinearHere.nearestQuadrantG;
                 blueQuadrant = collectCubeLinearHere.nearestQuadrantB;
 
-                rCordNormalized = collectCubeLinearHere.RCORD / stepSize;
+                /*multiplyHelper.X = collectCubeLinearHere.RCORD;
+                multiplyHelper.Y = collectCubeLinearHere.GCORD;
+                multiplyHelper.Z = collectCubeLinearHere.BCORD;*/
+                cordNormalized = collectCubeLinearHere.cord / stepSize;
+                /*rCordNormalized = collectCubeLinearHere.RCORD / stepSize;
                 gCordNormalized = collectCubeLinearHere.GCORD / stepSize;
-                bCordNormalized = collectCubeLinearHere.BCORD / stepSize;
+                bCordNormalized = collectCubeLinearHere.BCORD / stepSize;*/
 
                 count++;
                 for (rAround = -1; rAround <= 1; rAround++)
                 {
-                    if (rCordNormalized > redQuadrant && rAround == -1) continue; //major speed improvement but slight quality degradation
-                    if (rCordNormalized < redQuadrant  && rAround == 1) continue; //major speed improvement but slight quality degradation
+                    if (cordNormalized.X > redQuadrant && rAround == -1) continue; //major speed improvement but slight quality degradation
+                    if (cordNormalized.X < redQuadrant  && rAround == 1) continue; //major speed improvement but slight quality degradation
                     trueStepR = Math.Max(0, Math.Min(steps, redQuadrant + rAround));
-                    tmp1 = (trueStepR - rCordNormalized);
+                    tmp1 = (trueStepR - cordNormalized.X);
+                    tmp1sq = tmp1 * tmp1;
 
                     for (gAround = -1; gAround <= 1; gAround++)
                     {
-                        if (gCordNormalized >  greenQuadrant && gAround == -1) continue; //major speed improvement but slight quality degradation
-                        if (gCordNormalized < greenQuadrant  && gAround == 1) continue; //major speed improvement but slight quality degradation
+                        if (cordNormalized.Y >  greenQuadrant && gAround == -1) continue; //major speed improvement but slight quality degradation
+                        if (cordNormalized.Y < greenQuadrant  && gAround == 1) continue; //major speed improvement but slight quality degradation
                         trueStepG = Math.Max(0, Math.Min(steps, greenQuadrant + gAround));
-                        tmp2 = (trueStepG - gCordNormalized);
+                        tmp2 = (trueStepG - cordNormalized.Y);
+                        tmp2sq = tmp2 * tmp2;
 
                         for (bAround = -1; bAround <= 1; bAround++)
                         {
-                            if (bCordNormalized >  blueQuadrant && bAround == -1) continue; //major speed improvement but slight quality degradation
-                            if (bCordNormalized < blueQuadrant && bAround == 1) continue; //major speed improvement but slight quality degradation
+                            if (cordNormalized.Z >  blueQuadrant && bAround == -1) continue; //major speed improvement but slight quality degradation
+                            if (cordNormalized.Z < blueQuadrant && bAround == 1) continue; //major speed improvement but slight quality degradation
                             trueStepB = Math.Max(0, Math.Min(steps, blueQuadrant + bAround));
-                            tmp3 = (trueStepB - bCordNormalized);
-
+                            tmp3 = (trueStepB - cordNormalized.Z);
+                            tmp3sq = tmp3 * tmp3;
 
                             if (simpleWeight)
                             {
@@ -425,28 +438,24 @@ namespace ColorMatch3D
                                     + tmp2 * tmp2
                                     + tmp3 * tmp3)
                                     ));*/
-                                weight = Math.Max(0, 3 - (float)(
-                                    (tmp1 * tmp1
-                                    + tmp2 * tmp2
-                                    + tmp3 * tmp3)
+                                weight = Math.Max(0, 3 - (
+                                    (tmp1sq
+                                    + tmp2sq
+                                    + tmp3sq)
                                     ));
                             }
-
-
-
-                            tmpCube[trueStepR, trueStepG, trueStepB].totalR += collectCubeLinearHere.R * weight;
-                            tmpCube[trueStepR, trueStepG, trueStepB].totalG += collectCubeLinearHere.G * weight;
-                            tmpCube[trueStepR, trueStepG, trueStepB].totalB += collectCubeLinearHere.B * weight;
+                            
+                            tmpCube[trueStepR, trueStepG, trueStepB].color += collectCubeLinearHere.color * weight;
                             tmpCube[trueStepR, trueStepG, trueStepB].divisor += weight;
-                            //tmpAverageData.valueR = (float)tmpAverageData.totalR / tmpAverageData.divisor;
-                            //tmpAverageData.valueG = (float)tmpAverageData.totalG / tmpAverageData.divisor;
-                            //tmpAverageData.valueB = (float)tmpAverageData.totalB / tmpAverageData.divisor;
+                            //tmpAverageData.valueR = (float)tmpAverageData.data.X / tmpAverageData.divisor;
+                            //tmpAverageData.valueG = (float)tmpAverageData.data.Y / tmpAverageData.divisor;
+                            //tmpAverageData.valueB = (float)tmpAverageData.data.Z / tmpAverageData.divisor;
 
                         }
                     }
                 }
 
-                if(count%50000 == 0)
+                if(count%200000 == 0)
                 {
 
                     progress.Report(new MatchReport("Building cube [" + (((double)count/(pixelCount))*100).ToString("#.##") + "%] "));
@@ -486,24 +495,20 @@ namespace ColorMatch3D
                                     for (bAround = -1; bAround <= 1; bAround++)
                                     {
                                         trueStepB = Math.Max(0, Math.Min(steps, blueQuadrant + bAround));
-                                        averageHelper.totalR += tmpCube[trueStepR, trueStepG, trueStepB].totalR;
-                                        averageHelper.totalG += tmpCube[trueStepR, trueStepG, trueStepB].totalG;
-                                        averageHelper.totalB += tmpCube[trueStepR, trueStepG, trueStepB].totalB;
+                                        averageHelper.color += tmpCube[trueStepR, trueStepG, trueStepB].color;
                                         averageHelper.divisor += tmpCube[trueStepR, trueStepG, trueStepB].divisor;
                                     }
                                 }
                             }
-                            tmpFloatColor.R = (float)averageHelper.totalR / averageHelper.divisor;
-                            tmpFloatColor.G = (float)averageHelper.totalG / averageHelper.divisor;
-                            tmpFloatColor.B = (float)averageHelper.totalB / averageHelper.divisor;
+                            tmpFloatColor.color = averageHelper.color / averageHelper.divisor;
                             cube[redQuadrant, greenQuadrant, blueQuadrant] = tmpFloatColor;
                         }
                         else
                         {
-                            tmpFloatColor.R = (float)tmpAverageData.totalR / tmpAverageData.divisor;
-                            tmpFloatColor.G = (float)tmpAverageData.totalG / tmpAverageData.divisor;
-                            tmpFloatColor.B = (float)tmpAverageData.totalB / tmpAverageData.divisor;
-                            cube[redQuadrant, greenQuadrant, blueQuadrant] = tmpFloatColor;
+                            /*tmpFloatColor.color.X = (float)tmpAverageData.color.X / tmpAverageData.divisor;
+                            tmpFloatColor.color.Y = (float)tmpAverageData.color.Y / tmpAverageData.divisor;
+                            tmpFloatColor.color.Z = (float)tmpAverageData.color.Z / tmpAverageData.divisor;*/
+                            cube[redQuadrant, greenQuadrant, blueQuadrant].color = tmpAverageData.color/tmpAverageData.divisor;
                         }
 
                     }
@@ -578,9 +583,9 @@ namespace ColorMatch3D
                             /*red = float.IsNaN(cube[r, g, b][R]) ? r*stepSize/255 : cube[r, g, b][R]/255;
                             green = float.IsNaN(cube[r, g, b][G]) ? g * stepSize/255 : cube[r, g, b][G]/255;
                             blue = float.IsNaN(cube[r, g, b][B]) ? b * stepSize/255 : cube[r, g, b][B]/255;*/
-                            red = float.IsNaN(cube[r, g, b].R) ? 0 : cube[r, g, b].R/255;
-                            green = float.IsNaN(cube[r, g, b].G) ?0 : cube[r, g, b].G/255;
-                            blue = float.IsNaN(cube[r, g, b].B) ? 0 : cube[r, g, b].B/255;
+                            red = float.IsNaN(cube[r, g, b].color.X) ? 0 : cube[r, g, b].color.X/255;
+                            green = float.IsNaN(cube[r, g, b].color.Y) ?0 : cube[r, g, b].color.Y/255;
+                            blue = float.IsNaN(cube[r, g, b].color.Z) ? 0 : cube[r, g, b].color.Z/255;
                             luttext += red + " " + green + " " + blue+"\n";
                         }
                     }
