@@ -41,12 +41,23 @@ namespace ColorMatch3D
             {
                 aggregateWhat = AggregateVariable.VECTOR;
             }
+            if(interpNone_radio.IsChecked == true)
+            {
+                interpolationType = InterpolationType.NONE;
+            }
+            if(interpDualLinear_radio.IsChecked == true)
+            {
+                interpolationType = InterpolationType.DUALLINEAR;
+            }
 
             //Win.MessageBox.Show(aggregateWhat.ToString());
         }
 
         enum AggregateVariable { ABSOLUTE, VECTOR};
         AggregateVariable aggregateWhat = AggregateVariable.VECTOR;
+
+        enum InterpolationType { NONE, DUALLINEAR};
+        InterpolationType interpolationType = InterpolationType.NONE;
 
         const int R = 0;
         const int G = 1;
@@ -560,6 +571,177 @@ namespace ColorMatch3D
                 }
             }
 
+            durations.Add(watch.ElapsedMilliseconds);
+
+
+            // Interpolation
+            if (interpolationType == InterpolationType.DUALLINEAR)
+            {
+                int unsolvedNaNs = 0;
+                int hintsRequiredInFirstLoop = 10; // How many hints (directions) are required during the first loop to calculate the correct value. The start value is arbitrary
+                bool thisIsNaN = false;
+
+
+                /* Possible directions for a hint: (2 dimensional example)
+                 *  X   -  X   -   X
+                 *  
+                 *  -   X   X  X   -
+                 *  
+                 *  X   X   O   X   X 
+                 *  
+                 *  -   X   X   X   - 
+                 *  
+                 *  X   -   X   -   X
+                 *  
+                 *  Abstract explanation attempt: 
+                 *  A hint is if either of these is true:
+                 *  - Use any combination of -1 0 and 1 in the 3 dimensions.
+                 *  - Take a second value that is the same vector, but times 2. 0 with stay 0, -1 will become -2 etc.
+                 */
+
+                // Prepare directions
+                List<Vector3> directionsList = new List<Vector3>();
+                Vector3 currentDirection = new Vector3();
+                for (int x = -1; x <= 1; x++)
+                {
+                    for (int y = -1; y <= 1; y++)
+                    {
+                        for (int z = -1; z <= 1; z++)
+                        {
+                            currentDirection.X = x;
+                            currentDirection.Y = y;
+                            currentDirection.Z = z;
+                            directionsList.Add(currentDirection);
+                        }
+                    }
+                }
+                Vector3[] directions = directionsList.ToArray();
+                Vector3[] directionsX2 = new Vector3[directions.Length];
+                for(int i=0;i<directions.Length;i++)
+                {
+                    directionsX2[i] = directions[i] * 2; // Add second item in same direction
+                }
+
+                bool[] hintsHere = new bool[directions.Length];
+                int hintCountHere = 0;
+
+                Vector3 currentLocation = new Vector3();
+                Vector3 transposedLocation = new Vector3();
+                Vector3 transposedLocationX2 = new Vector3();
+
+                bool directionIsNaN = false;
+                bool directionX2IsNaN = false;
+                FloatColor cubeHere = new FloatColor();
+                FloatColor cubeThere = new FloatColor();
+
+                int hintsRequired = hintsRequiredInFirstLoop;
+                int NaNsSolvedInThisLoop = 0;
+                AverageData averageOfResolvedHints = new AverageData();
+                Vector3 tmp;
+                // THE ACTUAL LOOP
+                // Loop until everything is solved
+                do
+                {
+                    NaNsSolvedInThisLoop = 0;
+                    // Go through all cells
+                    for (currentLocation.X = 0; currentLocation.X < outputValueCount; currentLocation.X++)
+                    {
+                        for (currentLocation.Y = 0; currentLocation.Y < outputValueCount; currentLocation.Y++)
+                        {
+                            for (currentLocation.Z = 0; currentLocation.Z < outputValueCount; currentLocation.Z++)
+                            {
+                                // First check if the current cell is a NaN
+                                cubeHere = cube[(int)currentLocation.X, (int)currentLocation.Y, (int)currentLocation.Z];
+                                thisIsNaN = float.IsNaN(cubeHere.color.X) || float.IsNaN(cubeHere.color.Y) || float.IsNaN(cubeHere.color.Z);
+
+                                if (thisIsNaN)
+                                {
+                                    hintCountHere = 0;
+
+                                    // 1. Search for hints
+                                    // Kind of a prefiltering.
+                                    for (int i = 0; i < directions.Length; i++)
+                                    {
+                                        transposedLocation = currentLocation + directions[i];
+                                        transposedLocationX2 = currentLocation + directionsX2[i];
+
+                                        if (transposedLocationX2.X < 0 || transposedLocationX2.X >= outputValueCount || transposedLocationX2.Y < 0 || transposedLocationX2.Y >= outputValueCount || transposedLocationX2.Z < 0 || transposedLocationX2.Z >= outputValueCount)
+                                        {
+                                            hintsHere[i] = false;
+                                            // doesn't work, outside bounds.
+                                        } else
+                                        {
+
+                                            cubeThere = cube[(int)transposedLocation.X, (int)transposedLocation.Y, (int)transposedLocation.Z];
+                                            directionIsNaN = float.IsNaN(cubeThere.color.X) || float.IsNaN(cubeThere.color.Y) || float.IsNaN(cubeThere.color.Z);
+                                            cubeThere = cube[(int)transposedLocationX2.X, (int)transposedLocationX2.Y, (int)transposedLocationX2.Z];
+                                            directionX2IsNaN = float.IsNaN(cubeThere.color.X) || float.IsNaN(cubeThere.color.Y) || float.IsNaN(cubeThere.color.Z);
+
+                                            if (!directionIsNaN && !directionX2IsNaN)
+                                            {
+                                                hintsHere[i] = true;
+                                                hintCountHere++;
+                                            }
+                                            else
+                                            {
+                                                hintsHere[i] = false;
+                                            }
+                                        }
+
+                                    }
+
+                                    // 2. ACTUAL SOLVING
+                                    // Decide if should solve or not. Want to start out with the cells that have the most hints, hence the limit. Limit is lowered every time the current limit doesn't allow further interpolation.
+                                    if(hintCountHere >= hintsRequired)
+                                    {
+
+                                        // ACTUAL SOLVING
+                                        averageOfResolvedHints.color = new Vector3(0,0,0);
+                                        averageOfResolvedHints.divisor = 0;
+
+                                        for (int i = 0; i < directions.Length; i++)
+                                        {
+                                            if(hintsHere[i] == true)
+                                            {
+                                                transposedLocation = currentLocation + directions[i];
+                                                tmp = cube[(int)transposedLocation.X, (int)transposedLocation.Y, (int)transposedLocation.Z].color;
+                                                transposedLocationX2 = currentLocation + directionsX2[i];
+                                                cubeThere = cube[(int)transposedLocationX2.X, (int)transposedLocationX2.Y, (int)transposedLocationX2.Z];
+                                                /*
+                                                 * Let's say we have this, one dimensionally:
+                                                 * NaN 2 3
+                                                 * 
+                                                 * NaN is our unknown.
+                                                 * We know it must be 1 according to our logic.
+                                                 * 
+                                                 * We take 3, subtract 2 and get 1. 
+                                                 * Now we subtract 1 from 2 and get 1.
+                                                 * 
+                                                 */
+                                                averageOfResolvedHints.color += cubeThere.color - (tmp - cubeThere.color);
+                                                averageOfResolvedHints.divisor += 1;
+                                            }
+                                        }
+                                        cube[(int)currentLocation.X, (int)currentLocation.Y, (int)currentLocation.Z].color = averageOfResolvedHints.color / averageOfResolvedHints.divisor;
+                                        NaNsSolvedInThisLoop++;
+                                    }
+                                }
+
+                            }
+                        }
+                    }
+                    if(NaNsSolvedInThisLoop == 0)
+                    {
+                        hintsRequired--;
+                        if(hintsRequired <= 0)
+                        {
+                            // Impossible. TODO implement error
+                            break;
+                        }
+                    }
+                } while (unsolvedNaNs > 0);
+            }
+
 
             durations.Add(watch.ElapsedMilliseconds);
 
@@ -645,6 +827,10 @@ namespace ColorMatch3D
             readGUISettings();
         }
 
+        private void interp_radio_Checked(object sender, win.RoutedEventArgs e)
+        {
+            readGUISettings();
+        }
 
         /*private void updateIter()
         {

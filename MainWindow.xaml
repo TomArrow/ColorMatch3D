@@ -105,6 +105,11 @@
                     <RadioButton x:Name="aggrAbsolute_radio" Checked="AggrVariable_radio_Checked">Absolute color</RadioButton>
                     <RadioButton x:Name="aggrVector_radio" IsChecked="True" Checked="AggrVariable_radio_Checked" ToolTip="Aggregates the vector difference of color between source and target image instead of the absolute color value.">Vector</RadioButton>
                 </WrapPanel>
+                <Label ToolTip="Use interpolation if the 3D LUT needs to generalize better and not merely fit one image">Interpolation</Label>
+                <WrapPanel>
+                    <RadioButton x:Name="interpNone_radio" Checked="interp_radio_Checked" IsChecked="True">None (default)</RadioButton>
+                    <RadioButton x:Name="interpDualLinear_radio" Checked="interp_radio_Checked" ToolTip="Takes two surrounding values in each direction, calculates the change, averages all info.">Dual Linear (experimental, slow)</RadioButton>
+                </WrapPanel>
             </StackPanel>
         </Grid>
 
