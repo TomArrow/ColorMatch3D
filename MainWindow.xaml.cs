@@ -33,6 +33,7 @@ namespace ColorMatch3D
 
         private void readGUISettings()
         {
+            try { 
             if(aggrAbsolute_radio.IsChecked == true)
             {
                 aggregateWhat = AggregateVariable.ABSOLUTE;
@@ -45,11 +46,13 @@ namespace ColorMatch3D
             {
                 interpolationType = InterpolationType.NONE;
             }
-            if(interpDualLinear_radio.IsChecked == true)
+            if (interpDualLinear_radio.IsChecked == true)
             {
                 interpolationType = InterpolationType.DUALLINEAR;
             }
-
+            }
+            catch (Exception e) { //fuck, it's just called too early and the objects dont exist. whatever.
+            }
             //Win.MessageBox.Show(aggregateWhat.ToString());
         }
 
@@ -578,7 +581,6 @@ namespace ColorMatch3D
             if (interpolationType == InterpolationType.DUALLINEAR)
             {
                 int unsolvedNaNs = 0;
-                int hintsRequiredInFirstLoop = 10; // How many hints (directions) are required during the first loop to calculate the correct value. The start value is arbitrary
                 bool thisIsNaN = false;
 
 
@@ -634,6 +636,7 @@ namespace ColorMatch3D
                 FloatColor cubeHere = new FloatColor();
                 FloatColor cubeThere = new FloatColor();
 
+                int hintsRequiredInFirstLoop = directions.Length; // How many hints (directions) are required during the first loop to calculate the correct value. The start value is arbitrary
                 int hintsRequired = hintsRequiredInFirstLoop;
                 int NaNsSolvedInThisLoop = 0;
                 AverageData averageOfResolvedHints = new AverageData();
@@ -643,6 +646,7 @@ namespace ColorMatch3D
                 do
                 {
                     NaNsSolvedInThisLoop = 0;
+                    unsolvedNaNs = 0;
                     // Go through all cells
                     for (currentLocation.X = 0; currentLocation.X < outputValueCount; currentLocation.X++)
                     {
@@ -724,6 +728,9 @@ namespace ColorMatch3D
                                         }
                                         cube[(int)currentLocation.X, (int)currentLocation.Y, (int)currentLocation.Z].color = averageOfResolvedHints.color / averageOfResolvedHints.divisor;
                                         NaNsSolvedInThisLoop++;
+                                    } else
+                                    {
+                                        unsolvedNaNs++;
                                     }
                                 }
 
@@ -739,6 +746,8 @@ namespace ColorMatch3D
                             break;
                         }
                     }
+
+                    progress.Report(new MatchReport("Interpolating, Dual Linear algorithm [" + unsolvedNaNs + " unsolved remaining] "));
                 } while (unsolvedNaNs > 0);
             }
 
@@ -827,7 +836,7 @@ namespace ColorMatch3D
             readGUISettings();
         }
 
-        private void interp_radio_Checked(object sender, win.RoutedEventArgs e)
+        private void Interp_radio_Checked(object sender, win.RoutedEventArgs e)
         {
             readGUISettings();
         }

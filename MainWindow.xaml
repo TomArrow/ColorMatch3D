@@ -107,8 +107,8 @@
                 </WrapPanel>
                 <Label ToolTip="Use interpolation if the 3D LUT needs to generalize better and not merely fit one image">Interpolation</Label>
                 <WrapPanel>
-                    <RadioButton x:Name="interpNone_radio" Checked="interp_radio_Checked" IsChecked="True">None (default)</RadioButton>
-                    <RadioButton x:Name="interpDualLinear_radio" Checked="interp_radio_Checked" ToolTip="Takes two surrounding values in each direction, calculates the change, averages all info.">Dual Linear (experimental, slow)</RadioButton>
+                    <RadioButton x:Name="interpNone_radio" Checked="Interp_radio_Checked" IsChecked="True">None (default)</RadioButton>
+                    <RadioButton x:Name="interpDualLinear_radio" Checked="Interp_radio_Checked" ToolTip="Takes two surrounding values in each direction, calculates the change, averages all info.">Dual Linear (experimental, slow)</RadioButton>
                 </WrapPanel>
             </StackPanel>
         </Grid>
