@@ -46,6 +46,10 @@ namespace ColorMatch3D
             {
                 interpolationType = InterpolationType.NONE;
             }
+            if (interpSingleLinear_radio.IsChecked == true)
+            {
+                interpolationType = InterpolationType.SINGLELINEAR;
+            }
             if (interpDualLinear_radio.IsChecked == true)
             {
                 interpolationType = InterpolationType.DUALLINEAR;
@@ -59,7 +63,7 @@ namespace ColorMatch3D
         enum AggregateVariable { ABSOLUTE, VECTOR};
         AggregateVariable aggregateWhat = AggregateVariable.VECTOR;
 
-        enum InterpolationType { NONE, DUALLINEAR};
+        enum InterpolationType { NONE, SINGLELINEAR, DUALLINEAR};
         InterpolationType interpolationType = InterpolationType.NONE;
 
         const int R = 0;
@@ -528,36 +532,43 @@ namespace ColorMatch3D
                         {
                             // Do this only if you skipped the arounds earlier. Maybe make this a "fast algo" option.
                             // This part is pretty quick though, but it still doesn't eliminate artifacts completely.
-                            averageHelper = new AverageData();
-                            for (rAround = -1; rAround <= 1; rAround++)
-                            {
-                                trueStepR = Math.Max(0, Math.Min(steps, redQuadrant + rAround));
-                                for (gAround = -1; gAround <= 1; gAround++)
+                            // Also don't do this if interpolation is activated, as it will (hopefully) provide more reasonable values than this.
+                            if(interpolationType == InterpolationType.NONE) {
+
+                                averageHelper = new AverageData();
+                                for (rAround = -1; rAround <= 1; rAround++)
                                 {
-                                    trueStepG = Math.Max(0, Math.Min(steps, greenQuadrant + gAround));
-                                    for (bAround = -1; bAround <= 1; bAround++)
+                                    trueStepR = Math.Max(0, Math.Min(steps, redQuadrant + rAround));
+                                    for (gAround = -1; gAround <= 1; gAround++)
                                     {
-                                        trueStepB = Math.Max(0, Math.Min(steps, blueQuadrant + bAround));
-                                        averageHelper.color += tmpCube[trueStepR, trueStepG, trueStepB].color;
-                                        averageHelper.divisor += tmpCube[trueStepR, trueStepG, trueStepB].divisor;
+                                        trueStepG = Math.Max(0, Math.Min(steps, greenQuadrant + gAround));
+                                        for (bAround = -1; bAround <= 1; bAround++)
+                                        {
+                                            trueStepB = Math.Max(0, Math.Min(steps, blueQuadrant + bAround));
+                                            averageHelper.color += tmpCube[trueStepR, trueStepG, trueStepB].color;
+                                            averageHelper.divisor += tmpCube[trueStepR, trueStepG, trueStepB].divisor;
+                                        }
                                     }
                                 }
-                            }
-                            if(aggregateWhat == AggregateVariable.ABSOLUTE)
+                                if(aggregateWhat == AggregateVariable.ABSOLUTE)
+                                {
+                                    tmpFloatColor.color = averageHelper.color / averageHelper.divisor;
+                                } else if(aggregateWhat == AggregateVariable.VECTOR)
+                                {
+                                    tmpFloatColor.color = absCoord + (averageHelper.color / averageHelper.divisor);
+                                }
+                                cube[redQuadrant, greenQuadrant, blueQuadrant] = tmpFloatColor;
+                            } else
                             {
-                                tmpFloatColor.color = averageHelper.color / averageHelper.divisor;
-                            } else if(aggregateWhat == AggregateVariable.VECTOR)
-                            {
-                                tmpFloatColor.color = absCoord + (averageHelper.color / averageHelper.divisor);
+                                cube[redQuadrant, greenQuadrant, blueQuadrant].color.X = float.NaN;
                             }
-                            cube[redQuadrant, greenQuadrant, blueQuadrant] = tmpFloatColor;
                         }
                         else
                         {
                             /*tmpFloatColor.color.X = (float)tmpAverageData.color.X / tmpAverageData.divisor;
                             tmpFloatColor.color.Y = (float)tmpAverageData.color.Y / tmpAverageData.divisor;
                             tmpFloatColor.color.Z = (float)tmpAverageData.color.Z / tmpAverageData.divisor;*/
-
+                            /*
                             if (aggregateWhat == AggregateVariable.ABSOLUTE)
                             {
 
@@ -567,7 +578,8 @@ namespace ColorMatch3D
                             {
 
                                 cube[redQuadrant, greenQuadrant, blueQuadrant].color = absCoord + tmpAverageData.color / tmpAverageData.divisor;
-                            }
+                            }*/ // This whole thing comes later now (transfer to absolute)
+                            cube[redQuadrant, greenQuadrant, blueQuadrant].color = tmpAverageData.color / tmpAverageData.divisor;
                         }
 
                     }
@@ -578,7 +590,7 @@ namespace ColorMatch3D
 
 
             // Interpolation
-            if (interpolationType == InterpolationType.DUALLINEAR)
+            if (interpolationType == InterpolationType.DUALLINEAR || interpolationType == InterpolationType.SINGLELINEAR)
             {
                 int unsolvedNaNs = 0;
                 bool thisIsNaN = false;
@@ -681,7 +693,7 @@ namespace ColorMatch3D
                                             cubeThere = cube[(int)transposedLocationX2.X, (int)transposedLocationX2.Y, (int)transposedLocationX2.Z];
                                             directionX2IsNaN = float.IsNaN(cubeThere.color.X) || float.IsNaN(cubeThere.color.Y) || float.IsNaN(cubeThere.color.Z);
 
-                                            if (!directionIsNaN && !directionX2IsNaN)
+                                            if (!directionIsNaN && (!directionX2IsNaN || interpolationType == InterpolationType.SINGLELINEAR))
                                             {
                                                 hintsHere[i] = true;
                                                 hintCountHere++;
@@ -722,7 +734,13 @@ namespace ColorMatch3D
                                                  * Now we subtract 1 from 2 and get 1.
                                                  * 
                                                  */
-                                                averageOfResolvedHints.color += cubeThere.color - (tmp - cubeThere.color);
+                                                if (interpolationType == InterpolationType.SINGLELINEAR)
+                                                {
+                                                    averageOfResolvedHints.color += tmp;
+                                                } else if(interpolationType == InterpolationType.DUALLINEAR)
+                                                {
+                                                    averageOfResolvedHints.color += cubeThere.color - (tmp - cubeThere.color);
+                                                }
                                                 averageOfResolvedHints.divisor += 1;
                                             }
                                         }
@@ -745,14 +763,43 @@ namespace ColorMatch3D
                             // Impossible. TODO implement error
                             break;
                         }
+                    } else
+                    {
+                        // Tried resetting or making higher the hintsrequired here after successful runs, but it slows down a LOT without notable improvement
+                        //hintsRequired++;
                     }
 
-                    progress.Report(new MatchReport("Interpolating, Dual Linear algorithm [" + unsolvedNaNs + " unsolved remaining] "));
+                    progress.Report(new MatchReport("Interpolating, Dual Linear algorithm [" + unsolvedNaNs + " unsolved remaining, "+hintsRequired+ " hints required] "));
                 } while (unsolvedNaNs > 0);
             }
 
 
             durations.Add(watch.ElapsedMilliseconds);
+
+            // Convert Vector back to absolute
+            if (aggregateWhat == AggregateVariable.VECTOR)
+            {
+                for (redQuadrant = 0; redQuadrant < outputValueCount; redQuadrant++)
+                {
+                    absCoord.X = redQuadrant * stepSize;
+                    for (greenQuadrant = 0; greenQuadrant < outputValueCount; greenQuadrant++)
+                    {
+                        absCoord.Y = greenQuadrant * stepSize;
+                        for (blueQuadrant = 0; blueQuadrant < outputValueCount; blueQuadrant++)
+                        {
+                            absCoord.Z = blueQuadrant * stepSize;
+
+                            cube[redQuadrant, greenQuadrant, blueQuadrant].color = absCoord + cube[redQuadrant, greenQuadrant, blueQuadrant].color;
+                                
+                        }
+                    }
+                }
+                durations.Add(watch.ElapsedMilliseconds);
+            }
+
+
+
+
 
             watch.Stop();
 
