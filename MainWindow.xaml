@@ -53,13 +53,13 @@
                     <DockPanel LastChildFill="True">
                         <Label >Test image is:</Label>
                         <RadioButton IsChecked="True">sRGB</RadioButton>
-                        <RadioButton>sRGB Linear</RadioButton>
+                        <RadioButton  IsEnabled="False" >sRGB Linear</RadioButton>
                     </DockPanel>
                     <Button Click="SelectReference_Click">Select reference image...</Button>
                     <DockPanel LastChildFill="True">
                         <Label>Reference image is:</Label>
-                        <RadioButton IsChecked="True">sRGB</RadioButton>
-                        <RadioButton>sRGB Linear</RadioButton>
+                        <RadioButton IsChecked="True"  >sRGB</RadioButton>
+                        <RadioButton  IsEnabled="False" >sRGB Linear</RadioButton>
                     </DockPanel>
 
                     <StackPanel>
@@ -71,9 +71,10 @@
                             <Button x:Name="btnMakeLUT" Click="BtnMakeLUT_Click">Export 3D LUT (.cube)</Button>
                             <Label>Export for:</Label>
                             <RadioButton IsChecked="True">sRGB</RadioButton>
-                            <RadioButton>sRGB Linear</RadioButton>
+                            <RadioButton  IsEnabled="False" >sRGB Linear</RadioButton>
                         </WrapPanel>
                         <Button Background="Red" Foreground="White" FontWeight="Black" Click="DoColorMatch_Click">Run ColorMatch</Button>
+                        <TextBlock TextWrapping="Wrap">Note: Loaded images must be 8-bit and in sRGB.</TextBlock>
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>
@@ -85,20 +86,20 @@
                 <Border BorderThickness="1" BorderBrush="LightGray" Margin="5"></Border>
                 <Label>Matching Method</Label>
                 <WrapPanel>
-                    <RadioButton x:Name="useAbsoluteMatching_radio" IsChecked="True">absolute</RadioButton>
-                    <RadioButton x:Name="useColorMatching_radio">color</RadioButton>
+                    <RadioButton x:Name="useAbsoluteMatching_radio" IsChecked="True"  IsEnabled="False" >absolute</RadioButton>
+                    <RadioButton x:Name="useColorMatching_radio"  IsEnabled="False" >color</RadioButton>
                 </WrapPanel>
-                <Label>Aggregation color space</Label>
+                <Label ToolTip="Defines what color space the averaging of target colors as well as interpolation (if checked) happens">Aggregation color space</Label>
                 <WrapPanel>
-                    <RadioButton x:Name="useRGBAggrSpace_radio" IsChecked="True">RGB</RadioButton>
-                    <RadioButton x:Name="useRGBLinearAggrSpace_radio">RGB Linear</RadioButton>
-                    <RadioButton x:Name="useXYZAggrSpace_radio">XYZ</RadioButton>
-                    <RadioButton x:Name="useCIELabAggrSpace_radio">CIELab</RadioButton>
+                    <RadioButton x:Name="useSRGBAggrSpace_radio" Checked="AggrSpace_radio_Checked" IsChecked="True">sRGB</RadioButton>
+                    <RadioButton x:Name="useSRGBLinearAggrSpace_radio" Checked="AggrSpace_radio_Checked" IsEnabled="False" >sRGB Linear</RadioButton>
+                    <RadioButton x:Name="useXYZAggrSpace_radio" Checked="AggrSpace_radio_Checked"  IsEnabled="False" >XYZ</RadioButton>
+                    <RadioButton x:Name="useCIELabAggrSpace_radio" Checked="AggrSpace_radio_Checked" >CIELab</RadioButton>
                 </WrapPanel>
                 <Label>Aggregation method</Label>
                 <WrapPanel>
-                    <RadioButton x:Name="useMeanAggr_radio" IsChecked="True">Mean</RadioButton>
-                    <RadioButton x:Name="useMedianAggr_radio">Median</RadioButton>
+                    <RadioButton x:Name="useMeanAggr_radio" IsChecked="True"  IsEnabled="False" >Mean</RadioButton>
+                    <RadioButton x:Name="useMedianAggr_radio"  IsEnabled="False" >Median</RadioButton>
                 </WrapPanel>
                 <Label>Aggregation variable</Label>
                 <WrapPanel>

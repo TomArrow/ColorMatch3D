@@ -10,6 +10,8 @@ using Microsoft.Win32;
 using System.Threading;
 using System.Numerics;
 using Win = System.Windows;
+using ColorMine;
+using ColorMine.ColorSpaces;
 
 namespace ColorMatch3D
 {
@@ -33,27 +35,50 @@ namespace ColorMatch3D
 
         private void readGUISettings()
         {
-            try { 
-            if(aggrAbsolute_radio.IsChecked == true)
-            {
-                aggregateWhat = AggregateVariable.ABSOLUTE;
-            }
-            if(aggrVector_radio.IsChecked == true)
-            {
-                aggregateWhat = AggregateVariable.VECTOR;
-            }
-            if(interpNone_radio.IsChecked == true)
-            {
-                interpolationType = InterpolationType.NONE;
-            }
-            if (interpSingleLinear_radio.IsChecked == true)
-            {
-                interpolationType = InterpolationType.SINGLELINEAR;
-            }
-            if (interpDualLinear_radio.IsChecked == true)
-            {
-                interpolationType = InterpolationType.DUALLINEAR;
-            }
+            try {
+
+
+
+                if (useSRGBAggrSpace_radio.IsChecked == true)
+                {
+                    aggregateColorSpace = AggregateColorSpace.SRGB;
+                }
+                if (useSRGBLinearAggrSpace_radio.IsChecked == true)
+                {
+                    aggregateColorSpace = AggregateColorSpace.SRGBLINEAR;
+                }
+                if (useXYZAggrSpace_radio.IsChecked == true)
+                {
+                    aggregateColorSpace = AggregateColorSpace.XYZ;
+                }
+                if (useCIELabAggrSpace_radio.IsChecked == true)
+                {
+                    aggregateColorSpace = AggregateColorSpace.CIELAB;
+                }
+
+                if (aggrAbsolute_radio.IsChecked == true)
+                {
+                    aggregateWhat = AggregateVariable.ABSOLUTE;
+                }
+                if(aggrVector_radio.IsChecked == true)
+                {
+                    aggregateWhat = AggregateVariable.VECTOR;
+                }
+                if(interpNone_radio.IsChecked == true)
+                {
+                    interpolationType = InterpolationType.NONE;
+                }
+                if (interpSingleLinear_radio.IsChecked == true)
+                {
+                    interpolationType = InterpolationType.SINGLELINEAR;
+                }
+                if (interpDualLinear_radio.IsChecked == true)
+                {
+                    interpolationType = InterpolationType.DUALLINEAR;
+                }
+                
+
+
             }
             catch (Exception e) { //fuck, it's just called too early and the objects dont exist. whatever.
             }
@@ -65,6 +90,9 @@ namespace ColorMatch3D
 
         enum InterpolationType { NONE, SINGLELINEAR, DUALLINEAR};
         InterpolationType interpolationType = InterpolationType.NONE;
+
+        enum AggregateColorSpace { SRGB, SRGBLINEAR, XYZ, CIELAB };
+        AggregateColorSpace aggregateColorSpace = AggregateColorSpace.SRGB;
 
         const int R = 0;
         const int G = 1;
@@ -151,6 +179,7 @@ namespace ColorMatch3D
 
 
         //defunct
+        /*
         private async void  RegradeImage(float[,] matrix)
         {
             return;
@@ -185,9 +214,11 @@ namespace ColorMatch3D
             }
             */
             
-        }
+        //}*/
+    
 
         // defunct
+        /*
         private BitmapSource DoRegrade_Worker(float[,] matrix, float testGamma, float workGamma, Bitmap testImage,CancellationToken token)
         {
             return Helpers.BitmapToImageSource(testImage);
@@ -223,7 +254,7 @@ namespace ColorMatch3D
             token.ThrowIfCancellationRequested();
             result.Freeze();
             return result;
-        }
+        }*/
 
         private enum DOWNSCALE { DEFAULT,NN}
 
@@ -247,7 +278,7 @@ namespace ColorMatch3D
         struct ColorPairData
         {
             //public byte R, G, B, RCORD, GCORD, BCORD;
-            public Vector3 color, cord;
+            public Vector3 color, cord, cordConverted;
             public byte nearestQuadrantR, nearestQuadrantG, nearestQuadrantB;
         };
 
@@ -364,6 +395,9 @@ namespace ColorMatch3D
             int collectCubeLinearIndex = 0;
             // Build full histogram
 
+            Rgb tmpRGB = new Rgb();
+            Lab tmpLab;
+
             for (var y = 0; y < resY; y++)
             {
                 for (var x = 0; x < resX; x++)
@@ -375,16 +409,43 @@ namespace ColorMatch3D
                     stepG = (byte)Math.Round(testImgData[x, y, G] / stepSize);
                     stepB = (byte)Math.Round(testImgData[x, y, B] / stepSize);
                     
-                    thisPointLinear.color.X = refImgData[x, y, R];
-                    thisPointLinear.color.Y = refImgData[x, y, G];
-                    thisPointLinear.color.Z = refImgData[x, y, B];
                     thisPointLinear.cord.X = testImgData[x, y, R];
                     thisPointLinear.cord.Y = testImgData[x, y, G];
                     thisPointLinear.cord.Z = testImgData[x, y, B];
 
+                    if (aggregateColorSpace == AggregateColorSpace.CIELAB)
+                    {
+
+                        tmpRGB.R = refImgData[x, y, R];
+                        tmpRGB.G = refImgData[x, y, G];
+                        tmpRGB.B = refImgData[x, y, B];
+                        tmpLab = tmpRGB.To<Lab>();
+
+                        thisPointLinear.color.X = (float)tmpLab.L;
+                        thisPointLinear.color.Y = (float)tmpLab.A;
+                        thisPointLinear.color.Z = (float)tmpLab.B;
+
+
+                        tmpRGB.R = thisPointLinear.cord.X;
+                        tmpRGB.G = thisPointLinear.cord.Y;
+                        tmpRGB.B = thisPointLinear.cord.Z;
+                        tmpLab = tmpRGB.To<Lab>();
+                        thisPointLinear.cordConverted.X = (float)tmpLab.L;
+                        thisPointLinear.cordConverted.Y = (float)tmpLab.A;
+                        thisPointLinear.cordConverted.Z = (float)tmpLab.B;
+
+                    } else if(aggregateColorSpace == AggregateColorSpace.SRGB)
+                    {
+
+                        thisPointLinear.cordConverted = thisPointLinear.cord;
+                        thisPointLinear.color.X = refImgData[x, y, R];
+                        thisPointLinear.color.Y = refImgData[x, y, G];
+                        thisPointLinear.color.Z = refImgData[x, y, B];
+                    }
+
                     if(aggregateWhat == AggregateVariable.VECTOR)
                     {
-                        thisPointLinear.color = thisPointLinear.color - thisPointLinear.cord;
+                        thisPointLinear.color = thisPointLinear.color - thisPointLinear.cordConverted;
                     }
 
                     /*thisPointLinear.R = refImgData[x, y, R];
@@ -777,8 +838,9 @@ namespace ColorMatch3D
             durations.Add(watch.ElapsedMilliseconds);
 
             // Convert Vector back to absolute
-            if (aggregateWhat == AggregateVariable.VECTOR)
+            if (aggregateWhat == AggregateVariable.VECTOR || aggregateColorSpace != AggregateColorSpace.SRGB)
             {
+                Vector3 tmpColor = new Vector3();
                 for (redQuadrant = 0; redQuadrant < outputValueCount; redQuadrant++)
                 {
                     absCoord.X = redQuadrant * stepSize;
@@ -788,8 +850,41 @@ namespace ColorMatch3D
                         for (blueQuadrant = 0; blueQuadrant < outputValueCount; blueQuadrant++)
                         {
                             absCoord.Z = blueQuadrant * stepSize;
+                            // TODO Find a way to not clip the result values with ColorMine.
+                            if(aggregateColorSpace == AggregateColorSpace.CIELAB)
+                            {
 
-                            cube[redQuadrant, greenQuadrant, blueQuadrant].color = absCoord + cube[redQuadrant, greenQuadrant, blueQuadrant].color;
+                                tmpRGB.R = absCoord.X;
+                                tmpRGB.G = absCoord.Y;
+                                tmpRGB.B = absCoord.Z;
+                                tmpLab = tmpRGB.To<Lab>();
+                                tmpColor.X = (float)tmpLab.L;
+                                tmpColor.Y = (float)tmpLab.A;
+                                tmpColor.Z = (float)tmpLab.B;
+                                
+                                tmpColor = tmpColor + cube[redQuadrant, greenQuadrant, blueQuadrant].color;
+                                /*
+                                tmpLab.L = tmpColor.X;
+                                tmpLab.A = tmpColor.Y;
+                                tmpLab.B = tmpColor.Z;
+                                tmpRGB = tmpLab.To<Rgb>();
+
+                                tmpColor.X = (float)tmpRGB.R;
+                                tmpColor.Y = (float)tmpRGB.G;
+                                tmpColor.Z = (float)tmpRGB.B;
+                                */
+
+                                tmpColor = Helpers.XYZtoRGB(Helpers.CIELabToXYZ(tmpColor));
+
+                                cube[redQuadrant, greenQuadrant, blueQuadrant].color = tmpColor;
+
+                            }
+                            else if (aggregateColorSpace == AggregateColorSpace.SRGB)
+                            {
+
+                                cube[redQuadrant, greenQuadrant, blueQuadrant].color = absCoord + cube[redQuadrant, greenQuadrant, blueQuadrant].color;
+                            }
+
                                 
                         }
                     }
@@ -884,6 +979,11 @@ namespace ColorMatch3D
         }
 
         private void Interp_radio_Checked(object sender, win.RoutedEventArgs e)
+        {
+            readGUISettings();
+        }
+
+        private void AggrSpace_radio_Checked(object sender, win.RoutedEventArgs e)
         {
             readGUISettings();
         }
