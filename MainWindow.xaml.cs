@@ -365,10 +365,23 @@ namespace ColorMatch3D
             // If lowpass matching is enabled, do that in the same go.
             if (lowPassMatching == LowPassMatching.REFERENCETOTEST)
             {
-                progress.Report(new MatchReport("Blurring test image...."));
-                ByteImage testBitmapBlurred = Helpers.BlurImage(testBitmap,50, 1);
+
+                float blurRadius = 50;
+                int blurSizeX = (int)(resX / blurRadius);
+                int blurSizeY = (int)(resY / blurRadius);
+
+                ByteImage testBitmapBlurred = Helpers.ToGreyscale(Helpers.BitmapToByteArray(Helpers.ResizeBitmapHQ(Helpers.ResizeBitmapHQ(testImage, blurSizeX, blurSizeY),resX, resY)));
+                ByteImage referenceBitmapBlurred = Helpers.ToGreyscale(Helpers.BitmapToByteArray(Helpers.ResizeBitmapHQ(Helpers.ResizeBitmapHQ(referenceImage, blurSizeX, blurSizeY),resX, resY)));
+
+                /*progress.Report(new MatchReport("Blurring test image...."));
+                ByteImage testBitmapBlurred = Helpers.BlurImage(testBitmap,50);
                 progress.Report(new MatchReport("Blurring reference image...."));
-                ByteImage referenceBitmapBlurred = Helpers.BlurImage(referenceBitmap, 50, 1);
+                ByteImage referenceBitmapBlurred = Helpers.BlurImage(referenceBitmap, 50);*/
+
+                Helpers.ByteArrayToBitmap(testBitmapBlurred).Save("test1.png");
+                Helpers.ByteArrayToBitmap(referenceBitmapBlurred).Save("test2.png");
+
+
 
                 progress.Report(new MatchReport("Lowpass matching...."));
                 for (var x = 0; x < resX; x++)

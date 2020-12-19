@@ -63,7 +63,25 @@ namespace ColorMatch3D
 
             bmp.UnlockBits(bmpData);
 
-            return new ByteImage(rgbValues, stride,bmp.Width,bmp.Height);
+            return new ByteImage(rgbValues, stride,bmp.Width,bmp.Height,bmp.PixelFormat);
+        }
+
+        public static Bitmap ByteArrayToBitmap(ByteImage byteImage)
+        {
+            Bitmap myBitmap = new Bitmap(byteImage.width, byteImage.height,byteImage.pixelFormat);
+            Rectangle rect = new Rectangle(0, 0, myBitmap.Width, myBitmap.Height);
+            System.Drawing.Imaging.BitmapData bmpData =
+                myBitmap.LockBits(rect, System.Drawing.Imaging.ImageLockMode.ReadWrite,
+                myBitmap.PixelFormat);
+
+            bmpData.Stride = byteImage.stride;
+
+            IntPtr ptr = bmpData.Scan0;
+            System.Runtime.InteropServices.Marshal.Copy(byteImage.imageData,0,ptr, byteImage.imageData.Length);
+
+            myBitmap.UnlockBits(bmpData);
+            return myBitmap;
+
         }
 
         static public string matrixToString<T>(T[,] matrix)
@@ -77,6 +95,19 @@ namespace ColorMatch3D
             using (Graphics g = Graphics.FromImage(result))
             {
                 g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+                g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+                g.DrawImage(sourceBMP, 0, 0, width, height);
+            }
+            return result;
+        }
+
+
+        static public Bitmap ResizeBitmapHQ(Bitmap sourceBMP, int width, int height)
+        {
+            Bitmap result = new Bitmap(width, height);
+            using (Graphics g = Graphics.FromImage(result))
+            {
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
                 g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
                 g.DrawImage(sourceBMP, 0, 0, width, height);
             }
@@ -154,6 +185,43 @@ namespace ColorMatch3D
             public float divisor;
         };
 
+        // Very simple and inadequate greyscale conversion, but it'll do
+        static public ByteImage ToGreyscale(ByteImage inputImage)
+        {
+            byte[] inputImageData = inputImage.imageData;
+            int width = inputImage.width;
+            int height = inputImage.height;
+            int stride = inputImage.stride;
+
+            byte[] output = new byte[inputImageData.Length];
+            int strideHere = 0;
+            int xX4;
+            int offsetHere;
+
+            byte tmpLuma;
+
+            for (int y = 0; y < height; y++)
+            {
+                strideHere = stride * y;
+                for (int x = 0; x < width; x++) // 4 bc RGBA
+                {
+                    xX4 = x * 4;
+                    offsetHere = strideHere + xX4;
+
+                    tmpLuma = (byte)(inputImageData[offsetHere] * 0.11 + 0.59 * inputImageData[offsetHere + 1] + 0.3 * inputImageData[offsetHere + 2]);
+
+                    output[offsetHere] = tmpLuma;
+                    output[offsetHere + 1] = tmpLuma;
+                    output[offsetHere + 2] = tmpLuma;
+                    output[offsetHere+3] = inputImageData[offsetHere +3];
+                }
+            }
+
+            return new ByteImage(output, stride, width, height,inputImage.pixelFormat);
+        }
+
+        /*
+        // don't use this, it's complete garbage and slow and doesn't even work remotely.
         static public ByteImage BlurImage(ByteImage inputImage, int radius, bool desaturate = true, float strength = 1)
         {
             byte[] inputImageData = inputImage.imageData;
@@ -170,20 +238,6 @@ namespace ColorMatch3D
             int offsetHere;
             float strengthNegative = 1 - strength;
 
-            // Build up a matrix that serves as a lookup table for the euklidian distance of any particular distance from center pixel that is being blurred. Basically the kernel (?) thingie
-            // Doing this bc Sqrt and multiplication are expensive when done millions of times.
-            /*int matrixSideLength = radius * 2 + 1;
-            float[,] euklidianMatrix = new float[matrixSideLength, matrixSideLength]; // Will use this as a quick lookup
-            int distanceX, distanceY;
-            for (int matrixY = 0; matrixY < matrixSideLength; matrixY++)
-            {
-                distanceY = Math.Abs(matrixY - radius);
-                for (int matrixX=0; matrixX< matrixSideLength; matrixX++)
-                {
-                    distanceX = Math.Abs(matrixX - radius);
-                    euklidianMatrix[matrixY, matrixX] = (float)Math.Max(0,Math.Sqrt(distanceY*distanceY+distanceX*distanceX));
-                }
-            }*/
 
             AverageData currentPixel = new AverageData();
             AverageData lastPixel = new AverageData();
@@ -310,10 +364,11 @@ namespace ColorMatch3D
                     } else if (!desaturate)
                     {
 
-                        output[offsetHere] = (byte)tmpColor.X;
-                        output[offsetHere + 1] = (byte)tmpColor.Y;
-                        output[offsetHere + 2] = (byte)tmpColor.Z;
+                        output[offsetHere] = (byte)Math.Min(255,Math.Max(0,tmpColor.X));
+                        output[offsetHere + 1] = (byte)Math.Min(255, Math.Max(0, tmpColor.Y));
+                        output[offsetHere + 2] = (byte)Math.Min(255, Math.Max(0, tmpColor.Z));
                     }
+                    output[offsetHere + 3] = 255;
 
                     firstPassFinished = true;
 
@@ -326,6 +381,7 @@ namespace ColorMatch3D
 
             return new ByteImage(output,stride,width,height);
         }
+        */
         /*
         static public ByteImage BlurImage(ByteImage inputImage, int radius, float strength = 1)
         {
