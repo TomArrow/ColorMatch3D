@@ -415,7 +415,7 @@ namespace ColorMatch3D
 
                     if (aggregateColorSpace == AggregateColorSpace.CIELAB)
                     {
-
+                        /*
                         tmpRGB.R = refImgData[x, y, R];
                         tmpRGB.G = refImgData[x, y, G];
                         tmpRGB.B = refImgData[x, y, B];
@@ -433,6 +433,13 @@ namespace ColorMatch3D
                         thisPointLinear.cordConverted.X = (float)tmpLab.L;
                         thisPointLinear.cordConverted.Y = (float)tmpLab.A;
                         thisPointLinear.cordConverted.Z = (float)tmpLab.B;
+                        */
+
+                        thisPointLinear.color.X = refImgData[x, y, R];
+                        thisPointLinear.color.Y = refImgData[x, y, G];
+                        thisPointLinear.color.Z = refImgData[x, y, B];
+                        thisPointLinear.cordConverted = Helpers.sRGBToCIELab(thisPointLinear.cord);
+                        thisPointLinear.color = Helpers.sRGBToCIELab(thisPointLinear.color);
 
                     } else if(aggregateColorSpace == AggregateColorSpace.SRGB)
                     {
@@ -853,7 +860,7 @@ namespace ColorMatch3D
                             // TODO Find a way to not clip the result values with ColorMine.
                             if(aggregateColorSpace == AggregateColorSpace.CIELAB)
                             {
-
+                                /*
                                 tmpRGB.R = absCoord.X;
                                 tmpRGB.G = absCoord.Y;
                                 tmpRGB.B = absCoord.Z;
@@ -861,6 +868,8 @@ namespace ColorMatch3D
                                 tmpColor.X = (float)tmpLab.L;
                                 tmpColor.Y = (float)tmpLab.A;
                                 tmpColor.Z = (float)tmpLab.B;
+                                */
+                                tmpColor = Helpers.sRGBToCIELab(absCoord);
                                 
                                 tmpColor = tmpColor + cube[redQuadrant, greenQuadrant, blueQuadrant].color;
                                 /*

@@ -84,15 +84,59 @@ namespace ColorMatch3D
         }
 
         // Most of this color code is lifted from ColorMinePortable and adapted to work with Vector3
-        /*static public Vector3 sRGBToCIELab(Vector3 sRGBInput)
+        static public Vector3 sRGBToCIELab(Vector3 sRGBInput)
+        {
+            return XYZToCIELab(sRGBToXYZ(sRGBInput));
+        }
+        static public Vector3 sRGBToXYZ(Vector3 sRGBInput)
+        {
+            float r = PivotRgb(sRGBInput.X / 255.0f);
+            float g = PivotRgb(sRGBInput.Y / 255.0f);
+            float b = PivotRgb(sRGBInput.Z / 255.0f);
+
+            // Observer. = 2°, Illuminant = D65
+            sRGBInput.X = r * 0.4124f + g * 0.3576f + b * 0.1805f;
+            sRGBInput.Y = r * 0.2126f + g * 0.7152f + b * 0.0722f;
+            sRGBInput.Z = r * 0.0193f + g * 0.1192f + b * 0.9505f;
+
+            return sRGBInput;
+        }
+
+        private static float PivotRgb(float n)
+        {
+            return (n > 0.04045f ? (float) Math.Pow((n + 0.055) / 1.055, 2.4) : n / 12.92f) * 100.0f;
+        }
+
+        static public Vector3 XYZToCIELab(Vector3 XYZInput)
         {
 
+
+            float x = PivotXyz(XYZInput.X / WhiteReference.X);
+            float y = PivotXyz(XYZInput.Y / WhiteReference.Y);
+            float z = PivotXyz(XYZInput.Z / WhiteReference.Z);
+
+            XYZInput.X = (float) Math.Max(0, 116 * y - 16);
+            XYZInput.Y = 500f * (x - y);
+            XYZInput.Z = 200f * (y - z);
+
+            return XYZInput;
         }
 
         static public Vector3 CIELabTosRGB(Vector3 CIELabInput) {
-
+            return XYZtoRGB(CIELabToXYZ(CIELabInput));
         }
-        */
+
+        private static float PivotXyz(float n)
+        {
+            return n > Epsilon ? CubicRoot(n) : (Kappa * n + 16) / 116;
+        }
+
+
+        private static float CubicRoot(float n)
+        {
+            return (float)Math.Pow(n, 1.0 / 3.0);
+        }
+
         static public Vector3 WhiteReference = new Vector3
         {
                 X = 95.047f,
