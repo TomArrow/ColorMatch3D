@@ -10,8 +10,6 @@ using Microsoft.Win32;
 using System.Threading;
 using System.Numerics;
 using Win = System.Windows;
-using ColorMine;
-using ColorMine.ColorSpaces;
 
 namespace ColorMatch3D
 {
@@ -394,9 +392,6 @@ namespace ColorMatch3D
 
             int collectCubeLinearIndex = 0;
             // Build full histogram
-
-            Rgb tmpRGB = new Rgb();
-            Lab tmpLab;
 
             for (var y = 0; y < resY; y++)
             {

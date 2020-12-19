@@ -41,12 +41,6 @@
     <Reference Include="Be.IO, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>packages\Be.IO.1.0.0\lib\portable-net45+win+wpa81+wp80+MonoAndroid10+Xamarin.iOS10+MonoTouch10\Be.IO.dll</HintPath>
     </Reference>
-    <Reference Include="ColorMinePortable, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\ColorMinePortable.2.0.1\lib\netstandard2.0\ColorMinePortable.dll</HintPath>
-    </Reference>
-    <Reference Include="Colourful, Version=2.0.5.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\Colourful.2.0.5\lib\net45\Colourful.dll</HintPath>
-    </Reference>
     <Reference Include="Microsoft.Win32.Primitives, Version=4.0.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>packages\Microsoft.Win32.Primitives.4.3.0\lib\net46\Microsoft.Win32.Primitives.dll</HintPath>
     </Reference>
