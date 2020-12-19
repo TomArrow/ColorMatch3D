@@ -10,11 +10,14 @@ namespace ColorMatch3D
     {
         public byte[] imageData;
         public int stride;
+        public int width, height;
 
-        public ByteImage(byte[] imageDataA, int strideA)
+        public ByteImage(byte[] imageDataA, int strideA,int widthA, int heightA)
         {
             imageData = imageDataA;
             stride = strideA;
+            width = widthA;
+            height = heightA;
         }
 
         public int Length

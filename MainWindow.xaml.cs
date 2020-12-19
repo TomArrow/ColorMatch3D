@@ -37,6 +37,17 @@ namespace ColorMatch3D
 
 
 
+
+                if (lowPassMatchNone_radio.IsChecked == true)
+                {
+                    lowPassMatching = LowPassMatching.NONE;
+                }
+                if (lowPassMatchReferenceToSource_radio.IsChecked == true)
+                {
+                    lowPassMatching = LowPassMatching.REFERENCETOTEST;
+                }
+
+
                 if (useSRGBAggrSpace_radio.IsChecked == true)
                 {
                     aggregateColorSpace = AggregateColorSpace.SRGB;
@@ -87,10 +98,13 @@ namespace ColorMatch3D
         AggregateVariable aggregateWhat = AggregateVariable.VECTOR;
 
         enum InterpolationType { NONE, SINGLELINEAR, DUALLINEAR};
-        InterpolationType interpolationType = InterpolationType.NONE;
+        InterpolationType interpolationType = InterpolationType.SINGLELINEAR;
 
         enum AggregateColorSpace { SRGB, SRGBLINEAR, XYZ, CIELAB };
-        AggregateColorSpace aggregateColorSpace = AggregateColorSpace.SRGB;
+        AggregateColorSpace aggregateColorSpace = AggregateColorSpace.CIELAB;
+
+        enum LowPassMatching { NONE, REFERENCETOTEST, TESTTOREFERENCE};
+        LowPassMatching lowPassMatching = LowPassMatching.NONE;
 
         const int R = 0;
         const int G = 1;
@@ -346,26 +360,64 @@ namespace ColorMatch3D
             ByteImage testBitmap = Helpers.BitmapToByteArray(new Bitmap(testImage));
             ByteImage referenceBitmap = Helpers.BitmapToByteArray(resizedReferenceImage);
 
+
             // Convert images into arrays for faster access (hopefully)
-            for (var x = 0; x < resX; x++)
+            // If lowpass matching is enabled, do that in the same go.
+            if (lowPassMatching == LowPassMatching.REFERENCETOTEST)
             {
-                for (var y = 0; y < resY; y++)
+                progress.Report(new MatchReport("Blurring test image...."));
+                ByteImage testBitmapBlurred = Helpers.BlurImage(testBitmap,50, 1);
+                progress.Report(new MatchReport("Blurring reference image...."));
+                ByteImage referenceBitmapBlurred = Helpers.BlurImage(referenceBitmap, 50, 1);
+
+                progress.Report(new MatchReport("Lowpass matching...."));
+                for (var x = 0; x < resX; x++)
                 {
-                    testImgData[x, y, B] = testBitmap[testBitmap.stride * y + x * 4];
-                    testImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 4 + 1];
-                    testImgData[x, y, R] = testBitmap[testBitmap.stride * y + x * 4 + 2];
+                    for (var y = 0; y < resY; y++)
+                    {
+                        testImgData[x, y, B] = testBitmap[testBitmap.stride * y + x * 4];
+                        testImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 4 + 1];
+                        testImgData[x, y, R] = testBitmap[testBitmap.stride * y + x * 4 + 2];
 
-                    refImgData[x, y, B] = referenceBitmap[referenceBitmap.stride * y + x * 4];
-                    refImgData[x, y, G] = referenceBitmap[referenceBitmap.stride * y + x * 4 + 1];
-                    refImgData[x, y, R] = referenceBitmap[referenceBitmap.stride * y + x * 4 + 2];
+                        refImgData[x, y, B] = (byte)((float)referenceBitmap[referenceBitmap.stride * y + x * 4] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4]);
+                        refImgData[x, y, G] = (byte)((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 1] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 1] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4 + 1]);
+                        refImgData[x, y, R] = (byte)((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 2] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 2] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4 + 2]);
 
-                    /*debugBitmap.SetPixel(x, y, Color.FromArgb(testBitmap[testBitmap.stride * y + x * 3],
-                        refImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 3 + 1],
-                        refImgData[x, y, R] = testBitmap[testBitmap.stride * y + x * 3 + 2]));*/
+                        /*debugBitmap.SetPixel(x, y, Color.FromArgb(testBitmap[testBitmap.stride * y + x * 3],
+                            refImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 3 + 1],
+                            refImgData[x, y, R] = testBitmap[testBitmap.stride * y + x * 3 + 2]));*/
 
 
+                    }
                 }
             }
+            else if (lowPassMatching == LowPassMatching.NONE)
+            {
+
+                for (var x = 0; x < resX; x++)
+                {
+                    for (var y = 0; y < resY; y++)
+                    {
+                        testImgData[x, y, B] = testBitmap[testBitmap.stride * y + x * 4];
+                        testImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 4 + 1];
+                        testImgData[x, y, R] = testBitmap[testBitmap.stride * y + x * 4 + 2];
+
+                        refImgData[x, y, B] = referenceBitmap[referenceBitmap.stride * y + x * 4];
+                        refImgData[x, y, G] = referenceBitmap[referenceBitmap.stride * y + x * 4 + 1];
+                        refImgData[x, y, R] = referenceBitmap[referenceBitmap.stride * y + x * 4 + 2];
+
+                        /*debugBitmap.SetPixel(x, y, Color.FromArgb(testBitmap[testBitmap.stride * y + x * 3],
+                            refImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 3 + 1],
+                            refImgData[x, y, R] = testBitmap[testBitmap.stride * y + x * 3 + 2]));*/
+
+
+                    }
+                }
+            }
+
+
+
+            
 
             //debugBitmap.Save("test2.png");
 
@@ -549,6 +601,8 @@ namespace ColorMatch3D
                                     ));
                             }
                             
+
+                            // TODO MEDIAN METHOD + option to only accept places that have 3+ result colors + interpolation to prettify
                             tmpCube[trueStepR, trueStepG, trueStepB].color += collectCubeLinearHere.color * weight;
                             tmpCube[trueStepR, trueStepG, trueStepB].divisor += weight;
                             //tmpAverageData.valueR = (float)tmpAverageData.data.X / tmpAverageData.divisor;
@@ -988,6 +1042,11 @@ namespace ColorMatch3D
         }
 
         private void AggrSpace_radio_Checked(object sender, win.RoutedEventArgs e)
+        {
+            readGUISettings();
+        }
+
+        private void LowPassMatch_radio_Checked(object sender, win.RoutedEventArgs e)
         {
             readGUISettings();
         }

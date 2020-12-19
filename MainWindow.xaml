@@ -83,7 +83,14 @@
 
                 <Border BorderThickness="1" BorderBrush="LightGray" Margin="5"></Border>
 
+                <Label ToolTip="Blurs the two images with a large radius, divides them and multiplies the result with one of the images to match the other one. Should get rid of big brightness irregularities between two images, like from a hotspot in one image, or large sized power windows, but precision of contrast in the final match can suffer.">Lowpass-Equalization</Label>
+                <WrapPanel>
+                    <RadioButton x:Name="lowPassMatchNone_radio" Checked="LowPassMatch_radio_Checked" IsChecked="True">None</RadioButton>
+                    <RadioButton x:Name="lowPassMatchReferenceToSource_radio" Checked="LowPassMatch_radio_Checked">Reference to test (recommended)</RadioButton>
+                </WrapPanel>
                 <Border BorderThickness="1" BorderBrush="LightGray" Margin="5"></Border>
+                
+                
                 <Label>Matching Method</Label>
                 <WrapPanel>
                     <RadioButton x:Name="useAbsoluteMatching_radio" IsChecked="True"  IsEnabled="False" >absolute</RadioButton>
@@ -91,10 +98,10 @@
                 </WrapPanel>
                 <Label ToolTip="Defines what color space the averaging of target colors as well as interpolation (if checked) happens">Aggregation color space</Label>
                 <WrapPanel>
-                    <RadioButton x:Name="useSRGBAggrSpace_radio" Checked="AggrSpace_radio_Checked" IsChecked="True">sRGB</RadioButton>
+                    <RadioButton x:Name="useSRGBAggrSpace_radio" Checked="AggrSpace_radio_Checked" >sRGB</RadioButton>
                     <RadioButton x:Name="useSRGBLinearAggrSpace_radio" Checked="AggrSpace_radio_Checked" IsEnabled="False" >sRGB Linear</RadioButton>
                     <RadioButton x:Name="useXYZAggrSpace_radio" Checked="AggrSpace_radio_Checked"  IsEnabled="False" >XYZ</RadioButton>
-                    <RadioButton x:Name="useCIELabAggrSpace_radio" Checked="AggrSpace_radio_Checked" >CIELab</RadioButton>
+                    <RadioButton x:Name="useCIELabAggrSpace_radio" Checked="AggrSpace_radio_Checked" IsChecked="True">CIELab</RadioButton>
                 </WrapPanel>
                 <Label>Aggregation method</Label>
                 <WrapPanel>
@@ -108,8 +115,8 @@
                 </WrapPanel>
                 <Label ToolTip="Use interpolation if the 3D LUT needs to generalize better and not merely fit one image">Interpolation</Label>
                 <WrapPanel>
-                    <RadioButton x:Name="interpNone_radio" Checked="Interp_radio_Checked" IsChecked="True">None (default)</RadioButton>
-                    <RadioButton x:Name="interpSingleLinear_radio" Checked="Interp_radio_Checked" ToolTip="Takes the surrounding values and averages them.">Single Linear (good with vector)</RadioButton>
+                    <RadioButton x:Name="interpNone_radio" Checked="Interp_radio_Checked">None (default)</RadioButton>
+                    <RadioButton x:Name="interpSingleLinear_radio" Checked="Interp_radio_Checked" IsChecked="True" ToolTip="Takes the surrounding values and averages them.">Single Linear (good with vector)</RadioButton>
                     <RadioButton x:Name="interpDualLinear_radio" Checked="Interp_radio_Checked" ToolTip="Takes two surrounding values in each direction, calculates the change, averages all info.">Dual Linear (bad, avoid)</RadioButton>
                 </WrapPanel>
             </StackPanel>
