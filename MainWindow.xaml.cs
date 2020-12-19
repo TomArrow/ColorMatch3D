@@ -33,10 +33,19 @@ namespace ColorMatch3D
 
         private void readGUISettings()
         {
+
+
             try {
 
 
+                lowPassEqualizeBlurRadius = float.Parse(lowpassEqualizeBlurRadius_Text.Text);
+            }
+            catch (Exception e) { //fuck, it's just called too early and the objects dont exist. whatever.
+            }
+            try {
 
+
+                
 
                 if (lowPassMatchNone_radio.IsChecked == true)
                 {
@@ -105,6 +114,10 @@ namespace ColorMatch3D
 
         enum LowPassMatching { NONE, REFERENCETOTEST, TESTTOREFERENCE};
         LowPassMatching lowPassMatching = LowPassMatching.NONE;
+
+        float lowPassEqualizeBlurRadius = 200f;
+
+
 
         const int R = 0;
         const int G = 1;
@@ -328,8 +341,8 @@ namespace ColorMatch3D
 
             int resX = testImage.Width, resY = testImage.Height;
 
-            byte[,,] testImgData = new byte[resX, resY, 3];
-            byte[,,] refImgData = new byte[resX, resY, 3];
+            float[,,] testImgData = new float[resX, resY, 3];
+            float[,,] refImgData = new float[resX, resY, 3];
 
             // 3D Histogram.
             // Each possible color in a 256x256x256 RGB colorspace has one entry.
@@ -366,7 +379,7 @@ namespace ColorMatch3D
             if (lowPassMatching == LowPassMatching.REFERENCETOTEST)
             {
 
-                float blurRadius = 50;
+                float blurRadius = lowPassEqualizeBlurRadius;
                 int blurSizeX = (int)(resX / blurRadius);
                 int blurSizeY = (int)(resY / blurRadius);
 
@@ -378,8 +391,8 @@ namespace ColorMatch3D
                 progress.Report(new MatchReport("Blurring reference image...."));
                 ByteImage referenceBitmapBlurred = Helpers.BlurImage(referenceBitmap, 50);*/
 
-                Helpers.ByteArrayToBitmap(testBitmapBlurred).Save("test1.png");
-                Helpers.ByteArrayToBitmap(referenceBitmapBlurred).Save("test2.png");
+                //Helpers.ByteArrayToBitmap(testBitmapBlurred).Save("test1.png");
+                //Helpers.ByteArrayToBitmap(referenceBitmapBlurred).Save("test2.png");
 
 
 
@@ -392,9 +405,9 @@ namespace ColorMatch3D
                         testImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 4 + 1];
                         testImgData[x, y, R] = testBitmap[testBitmap.stride * y + x * 4 + 2];
 
-                        refImgData[x, y, B] = (byte)Math.Max(0, Math.Min(255, ((float)referenceBitmap[referenceBitmap.stride * y + x * 4] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4])));
-                        refImgData[x, y, G] = (byte)Math.Max(0, Math.Min(255, ((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 1] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 1] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4 + 1])));
-                        refImgData[x, y, R] = (byte)Math.Max(0, Math.Min(255, ((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 2] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 2] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4 + 2])));
+                        refImgData[x, y, B] = ((float)referenceBitmap[referenceBitmap.stride * y + x * 4] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4]);
+                        refImgData[x, y, G] =  ((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 1] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 1] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4 + 1]);
+                        refImgData[x, y, R] =  ((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 2] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 2] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4 + 2]);
 
                         /*debugBitmap.SetPixel(x, y, Color.FromArgb(testBitmap[testBitmap.stride * y + x * 3],
                             refImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 3 + 1],
@@ -1060,6 +1073,12 @@ namespace ColorMatch3D
         }
 
         private void LowPassMatch_radio_Checked(object sender, win.RoutedEventArgs e)
+        {
+            readGUISettings();
+        }
+
+
+        private void LowpassEqualizeBlurRadius_Text_TextChanged(object sender, win.Controls.TextChangedEventArgs e)
         {
             readGUISettings();
         }

@@ -88,6 +88,9 @@
                     <RadioButton x:Name="lowPassMatchNone_radio" Checked="LowPassMatch_radio_Checked" IsChecked="True">None</RadioButton>
                     <RadioButton x:Name="lowPassMatchReferenceToSource_radio" Checked="LowPassMatch_radio_Checked">Reference to test (recommended)</RadioButton>
                 </WrapPanel>
+                <WrapPanel>
+                    <Label>Blur radius</Label>
+                    <TextBox MinWidth="50" x:Name="lowpassEqualizeBlurRadius_Text" TextChanged="LowpassEqualizeBlurRadius_Text_TextChanged">200</TextBox></WrapPanel>
                 <Border BorderThickness="1" BorderBrush="LightGray" Margin="5"></Border>
                 
                 
