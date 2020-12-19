@@ -392,9 +392,9 @@ namespace ColorMatch3D
                         testImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 4 + 1];
                         testImgData[x, y, R] = testBitmap[testBitmap.stride * y + x * 4 + 2];
 
-                        refImgData[x, y, B] = (byte)((float)referenceBitmap[referenceBitmap.stride * y + x * 4] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4]);
-                        refImgData[x, y, G] = (byte)((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 1] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 1] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4 + 1]);
-                        refImgData[x, y, R] = (byte)((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 2] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 2] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4 + 2]);
+                        refImgData[x, y, B] = (byte)Math.Max(0, Math.Min(255, ((float)referenceBitmap[referenceBitmap.stride * y + x * 4] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4])));
+                        refImgData[x, y, G] = (byte)Math.Max(0, Math.Min(255, ((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 1] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 1] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4 + 1])));
+                        refImgData[x, y, R] = (byte)Math.Max(0, Math.Min(255, ((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 2] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 2] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4 + 2])));
 
                         /*debugBitmap.SetPixel(x, y, Color.FromArgb(testBitmap[testBitmap.stride * y + x * 3],
                             refImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 3 + 1],
