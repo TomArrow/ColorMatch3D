@@ -84,6 +84,308 @@ namespace ColorMatch3D
 
         }
 
+
+
+        struct AverageData1D
+        {
+            //public double totalR,totalG,totalB;
+            public float color;
+            public float divisor;
+        };
+
+
+        // Simple 1D Greyscale regrade of one image to another. Basically just to match brightness, that's all.
+        static public FloatImage Regrade1DHistogram(ByteImage testImage, ByteImage referenceImage, int percentileSubdivisions = 100)
+        {
+
+            byte[] testImageData = testImage.imageData;
+            byte[] referenceImageData = referenceImage.imageData;
+            float[] output = new float[testImage.Length];
+
+            // Work in 16 bit for more precision in the percentile thing.
+            int sixteenBitCount = 256 * 256;
+            int sixteenBitMax = sixteenBitCount - 1;
+
+            // Build histogram
+            int[] histogramTest = new  int[sixteenBitCount];
+            int[] histogramRef = new int[sixteenBitCount];
+
+            int width = testImage.width;
+            int height = testImage.height;
+            int strideTest = testImage.stride;
+            int strideRef = referenceImage.stride;
+
+            int strideHereTest, strideHereRef = 0;
+            int xX4;
+            int offsetHereTest, offsetHereRef;
+
+            int testLuma, refLuma;
+            float hereFactor;
+
+            // 1. BUILD HISTOGRAMS
+            for (int y = 0; y < height; y++)
+            {
+                strideHereTest = strideTest * y;
+                strideHereRef = strideRef * y;
+                for (int x = 0; x < width; x++) // 4 bc RGBA
+                {
+                    xX4 = x * 4;
+                    offsetHereTest = strideHereTest + xX4;
+                    offsetHereRef = strideHereRef + xX4;
+
+                    testLuma = (int) Math.Max(0,Math.Min(sixteenBitMax, ( ((int)testImageData[offsetHereTest] << 8)* 0.11f + 0.59f * ((int)testImageData[offsetHereTest + 1] << 8) + 0.3f * ((int)testImageData[offsetHereTest + 2] << 8))));
+                    refLuma = (int)Math.Max(0, Math.Min(sixteenBitMax, ( ((int)referenceImageData[offsetHereRef] << 8) * 0.11f + 0.59f * ((int)referenceImageData[offsetHereRef + 1] << 8) + 0.3f * ((int)referenceImageData[offsetHereRef + 2] << 8))));
+
+                    histogramTest[testLuma]++;
+                    histogramRef[refLuma]++;
+
+                    /*output[offsetHereTest] = tmpLuma;
+                    output[offsetHereTest + 1] = tmpLuma;
+                    output[offsetHereTest + 2] = tmpLuma;
+                    output[offsetHereTest + 3] = testImageData[offsetHere + 3];*/
+                }
+            }
+
+            // Info: The subdivision count is the amount of "boxes" I divide the brightness spectrum into. But these arrays do not represent the boxes, but rather the splits between the boxes, so it's -1. The splits define exactly WHERE the boxes end.
+            FloatIssetable[] percentilesTest = new FloatIssetable[percentileSubdivisions-1];
+            FloatIssetable[] percentilesRef = new FloatIssetable[percentileSubdivisions-1];
+
+            float onePercentile = width * height / percentileSubdivisions; // This is a bit messy I guess but it should work out.
+
+
+            // 2. BUILD PERCENTILE ARRAYS
+            // Fill percentile-arrays, basically saying at which brightness a certain percentile starts, by the amount of pixels that have a certain brightness
+            int countTest = 0;
+            int currentPercentileTest = 0, lastPercentileTest = 0;
+            float lastTestPercentileJumpValue = 0;
+            int countRef = 0;
+            int currentPercentileRef = 0, lastPercentileRef = 0;
+            float lastRefPercentileJumpValue = 0;
+
+            for (int i = 0; i < sixteenBitCount; i++)
+            {
+                countTest += histogramTest[i];
+                currentPercentileTest = (int)Math.Min(percentileSubdivisions-1,Math.Floor((double)countTest / onePercentile));
+
+                if(currentPercentileTest != lastPercentileTest)
+                {
+                    percentilesTest[currentPercentileTest-1].value = i;
+                    percentilesTest[currentPercentileTest-1].isSet = true;
+
+                    // Fill holes, if there are any.
+                    for(int a = lastPercentileTest + 1; a < currentPercentileTest; a++)
+                    {
+                        percentilesTest[a - 1].value = lastTestPercentileJumpValue + (i-lastTestPercentileJumpValue) * ((a - lastPercentileTest)/((float)currentPercentileTest-lastPercentileTest));
+                        percentilesTest[a - 1].isSet = true;
+                    }
+                    lastTestPercentileJumpValue = i;
+                }
+
+                lastPercentileTest = currentPercentileTest;
+
+                countRef += histogramRef[i];
+                currentPercentileRef = (int)Math.Min(percentileSubdivisions - 1, Math.Floor((double)countRef / onePercentile));
+
+                if (currentPercentileRef != lastPercentileRef)
+                {
+                    percentilesRef[currentPercentileRef-1].value = i;
+                    percentilesRef[currentPercentileRef-1].isSet = true;
+
+                    // Fill holes, if there are any.
+                    for (int a = lastPercentileRef + 1; a < currentPercentileRef; a++)
+                    {
+                        //percentilesRef[a - 1].value = lastRefPercentileJumpValue + (i - lastRefPercentileJumpValue) * (currentPercentileRef - lastPercentileRef) / a;
+                        percentilesRef[a - 1].value = lastRefPercentileJumpValue + (i - lastRefPercentileJumpValue) * ((a - currentPercentileRef) / ((float)currentPercentileRef - lastPercentileRef));
+                        percentilesRef[a - 1].isSet = true;
+                    }
+                    lastRefPercentileJumpValue = i;
+                }
+
+                lastPercentileRef = currentPercentileRef;
+            }
+
+
+
+            // 3. BUILD LUT FROM PERCENTILE ARRAYS
+            FloatIssetable[] factorsLUT = new FloatIssetable[256];
+            for (int i=0; i < percentilesTest.Length; i++)
+            {
+                factorsLUT[(int)Math.Floor(percentilesTest[i].value / 256)].value = percentilesTest[i].value == 0 ? 1 : percentilesRef[i].value / percentilesTest[i].value;
+                factorsLUT[(int)Math.Floor(percentilesTest[i].value / 256)].isSet = true;
+            }
+
+            // 4. FILL HOLES IN LUT
+            bool lastExists = false, nextExists = false;
+            int lastExisting = 0, nextExisting = 0;
+            float linearInterpolationFactor =0;
+            for(int i = 0; i < 256; i++)
+            {
+                if(factorsLUT[i].isSet == false)
+                {
+                    // Find next set value, if it exisst
+                    nextExists = false;
+                    for (int a = i+1; a < 256; a++)
+                    {
+                        if (factorsLUT[a].isSet)
+                        {
+                            nextExists = true;
+                            nextExisting = a;
+                            break;
+                        }
+                    }
+
+                    if (nextExists && lastExists)
+                    {
+                        linearInterpolationFactor = ((float)i - lastExisting)/ (nextExisting - lastExisting) ;
+                        factorsLUT[i].value = factorsLUT[lastExisting].value + linearInterpolationFactor * (factorsLUT[nextExisting].value - factorsLUT[lastExisting].value);
+                        factorsLUT[i].isSet = true;
+
+                        lastExists = true;
+                        lastExisting = i;
+                    }
+                    else if (lastExists)
+                    {
+
+                        factorsLUT[i].value = factorsLUT[lastExisting].value;
+                        factorsLUT[i].isSet = true;
+
+                        lastExists = true;
+                        lastExisting = i;
+                    }
+                    else if (nextExists)
+                    {
+
+                        factorsLUT[i].value = factorsLUT[nextExisting].value;
+                        factorsLUT[i].isSet = true;
+
+                        lastExists = true;
+                        lastExisting = i;
+                    }
+                    else if (!nextExists && !lastExists)
+                    {
+                        // Kinda impossible but ok
+                        // I think we're kinda fucced then. Let's just assume this never happens
+                    }
+                } else
+                {
+                    // Do nothing, all good
+                    lastExists = true;
+                    lastExisting = i;
+                }
+            }
+
+            // 5. APPLY LUT
+            for (int y = 0; y < height; y++)
+            {
+                strideHereTest = strideTest * y;
+                for (int x = 0; x < width; x++) // 4 bc RGBA
+                {
+                    xX4 = x * 4;
+                    offsetHereTest = strideHereTest + xX4;
+
+                    testLuma = (int)Math.Max(0, Math.Min(sixteenBitMax, (((float)testImageData[offsetHereTest]) * 0.11f + 0.59f * ((float)testImageData[offsetHereTest + 1]) + 0.3f * ((float)testImageData[offsetHereTest + 2]))));
+
+                    hereFactor = factorsLUT[(int)testLuma].value;
+
+                    output[offsetHereTest] = (float)testImageData[offsetHereTest] * hereFactor;
+                    output[offsetHereTest + 1] = (float)testImageData[offsetHereTest + 1] * hereFactor;
+                    output[offsetHereTest + 2] = (float)testImageData[offsetHereTest + 2] * hereFactor;
+                    output[offsetHereTest + 3] = (float)testImageData[offsetHereTest + 3];
+                }
+            }
+
+
+            return new FloatImage(output, strideTest, width, height, testImage.pixelFormat);
+        }
+
+        struct FloatIssetable
+        {
+            public float value;
+            public bool isSet;
+        }
+
+
+        // Simple 1D Greyscale regrade of one image to another. Basically just to match brightness, that's all.
+        static public FloatImage Regrade1DSimpleLUT(ByteImage testImage, ByteImage referenceImage)
+        {
+
+            byte[] testImageData = testImage.imageData;
+            byte[] referenceImageData = referenceImage.imageData;
+            float[] output = new float[testImage.Length];
+            // Build histogram
+            AverageData1D[] FactorLUT = new AverageData1D[256];
+
+            int width = testImage.width;
+            int height = testImage.height;
+            int strideTest = testImage.stride;
+            int strideRef = referenceImage.stride;
+
+            int strideHereTest,strideHereRef = 0;
+            int xX4;
+            int offsetHereTest,offsetHereRef;
+
+            float testLuma,refLuma;
+            float hereFactor;
+
+            for (int y = 0; y < height; y++)
+            {
+                strideHereTest = strideTest * y;
+                strideHereRef = strideRef * y;
+                for (int x = 0; x < width; x++) // 4 bc RGBA
+                {
+                    xX4 = x * 4;
+                    offsetHereTest = strideHereTest + xX4;
+                    offsetHereRef = strideHereRef + xX4;
+
+                    testLuma = testImageData[offsetHereTest] * 0.11f + 0.59f * testImageData[offsetHereTest + 1] + 0.3f * testImageData[offsetHereTest + 2];
+                    refLuma = referenceImageData[offsetHereRef] * 0.11f + 0.59f * referenceImageData[offsetHereRef + 1] + 0.3f * referenceImageData[offsetHereRef + 2];
+
+                    FactorLUT[(int)testLuma].color += refLuma / testLuma;
+                    FactorLUT[(int)testLuma].divisor++;
+
+
+                    /*output[offsetHereTest] = tmpLuma;
+                    output[offsetHereTest + 1] = tmpLuma;
+                    output[offsetHereTest + 2] = tmpLuma;
+                    output[offsetHereTest + 3] = testImageData[offsetHere + 3];*/
+                }
+            }
+
+            // Evaluate histogram
+            // No interpolation bc it only has to apply to this one image.
+            for(int i = 0; i < 256; i++)
+            {
+                if(FactorLUT[i].divisor != 0)
+                {
+
+                    FactorLUT[i].color = FactorLUT[i].color / FactorLUT[i].divisor;
+                }
+            }
+
+            // Apply histogram
+            for (int y = 0; y < height; y++)
+            {
+                strideHereTest = strideTest * y;
+                for (int x = 0; x < width; x++) // 4 bc RGBA
+                {
+                    xX4 = x * 4;
+                    offsetHereTest = strideHereTest + xX4;
+
+                    testLuma = testImageData[offsetHereTest] * 0.11f + 0.59f * testImageData[offsetHereTest + 1] + 0.3f * testImageData[offsetHereTest + 2];
+
+
+                    hereFactor = FactorLUT[(int)testLuma].color;
+
+                    output[offsetHereTest] = testImageData[offsetHereTest] * hereFactor;
+                    output[offsetHereTest + 1] = testImageData[offsetHereTest + 1] * hereFactor;
+                    output[offsetHereTest + 2] = testImageData[offsetHereTest + 2] * hereFactor;
+                    output[offsetHereTest + 3] = testImageData[offsetHereTest + 3];
+                }
+            }
+
+            return new FloatImage(output, strideTest, width, height, testImage.pixelFormat);
+        }
+
         static public string matrixToString<T>(T[,] matrix)
         {
             return "{{" + matrix[0, 0].ToString() + "," + matrix[0, 1].ToString() + "," + matrix[0, 2].ToString() + "},{" + matrix[1, 0].ToString() + "," + matrix[1, 1].ToString() + "," + matrix[1, 2].ToString() + "},{" + matrix[2, 0].ToString() + "," + matrix[2, 1].ToString() + "," + matrix[2, 2].ToString() + "}}";
@@ -186,7 +488,7 @@ namespace ColorMatch3D
         };
 
         // Very simple and inadequate greyscale conversion, but it'll do
-        static public ByteImage ToGreyscale(ByteImage inputImage)
+        static public ByteImage ToGreyscale(ByteImage inputImage,bool alpha100=true)
         {
             byte[] inputImageData = inputImage.imageData;
             int width = inputImage.width;
@@ -213,7 +515,7 @@ namespace ColorMatch3D
                     output[offsetHere] = tmpLuma;
                     output[offsetHere + 1] = tmpLuma;
                     output[offsetHere + 2] = tmpLuma;
-                    output[offsetHere+3] = inputImageData[offsetHere +3];
+                    output[offsetHere+3] = alpha100 ? (byte)255 : inputImageData[offsetHere +3];
                 }
             }
 

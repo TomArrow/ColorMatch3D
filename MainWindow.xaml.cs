@@ -374,6 +374,8 @@ namespace ColorMatch3D
             ByteImage referenceBitmap = Helpers.BitmapToByteArray(resizedReferenceImage);
 
 
+            durations.Add(watch.ElapsedMilliseconds);
+
             // Convert images into arrays for faster access (hopefully)
             // If lowpass matching is enabled, do that in the same go.
             if (lowPassMatching == LowPassMatching.REFERENCETOTEST)
@@ -385,14 +387,16 @@ namespace ColorMatch3D
 
                 ByteImage testBitmapBlurred = Helpers.ToGreyscale(Helpers.BitmapToByteArray(Helpers.ResizeBitmapHQ(Helpers.ResizeBitmapHQ(testImage, blurSizeX, blurSizeY),resX, resY)));
                 ByteImage referenceBitmapBlurred = Helpers.ToGreyscale(Helpers.BitmapToByteArray(Helpers.ResizeBitmapHQ(Helpers.ResizeBitmapHQ(referenceImage, blurSizeX, blurSizeY),resX, resY)));
+                FloatImage testBitmapBlurred1DRegradeToreferenceBitmap = Helpers.Regrade1DHistogram(testBitmapBlurred, referenceBitmapBlurred,10);
 
                 /*progress.Report(new MatchReport("Blurring test image...."));
                 ByteImage testBitmapBlurred = Helpers.BlurImage(testBitmap,50);
                 progress.Report(new MatchReport("Blurring reference image...."));
                 ByteImage referenceBitmapBlurred = Helpers.BlurImage(referenceBitmap, 50);*/
 
-                //Helpers.ByteArrayToBitmap(testBitmapBlurred).Save("test1.png");
-                //Helpers.ByteArrayToBitmap(referenceBitmapBlurred).Save("test2.png");
+                Helpers.ByteArrayToBitmap(testBitmapBlurred).Save("test1-test.png");
+                Helpers.ByteArrayToBitmap(referenceBitmapBlurred).Save("test2-ref.png");
+                Helpers.ByteArrayToBitmap(testBitmapBlurred1DRegradeToreferenceBitmap.ToByteImage()).Save("test3-1dregrade.png");
 
 
 
@@ -405,9 +409,9 @@ namespace ColorMatch3D
                         testImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 4 + 1];
                         testImgData[x, y, R] = testBitmap[testBitmap.stride * y + x * 4 + 2];
 
-                        refImgData[x, y, B] = ((float)referenceBitmap[referenceBitmap.stride * y + x * 4] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4]);
-                        refImgData[x, y, G] =  ((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 1] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 1] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4 + 1]);
-                        refImgData[x, y, R] =  ((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 2] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 2] * (float)testBitmapBlurred[testBitmapBlurred.stride * y + x * 4 + 2]);
+                        refImgData[x, y, B] = ((float)referenceBitmap[referenceBitmap.stride * y + x * 4] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4] * testBitmapBlurred1DRegradeToreferenceBitmap[testBitmapBlurred1DRegradeToreferenceBitmap.stride * y + x * 4]);
+                        refImgData[x, y, G] =  ((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 1] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 1] * testBitmapBlurred1DRegradeToreferenceBitmap[testBitmapBlurred1DRegradeToreferenceBitmap.stride * y + x * 4 + 1]);
+                        refImgData[x, y, R] =  ((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 2] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 2] * testBitmapBlurred1DRegradeToreferenceBitmap[testBitmapBlurred1DRegradeToreferenceBitmap.stride * y + x * 4 + 2]);
 
                         /*debugBitmap.SetPixel(x, y, Color.FromArgb(testBitmap[testBitmap.stride * y + x * 3],
                             refImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 3 + 1],
@@ -656,6 +660,8 @@ namespace ColorMatch3D
 
             tmpFloatColor.color = new Vector3(0, 0, 0);
 
+            Vector3 NaNColor = new Vector3 {X=float.NaN,Y=float.NaN,Z=float.NaN };
+
             // transfer tmpCube to normal cube
             // May seem slow from the code but actually only takes about 1 ms, it's ridiculously fast.
             AverageData averageHelper;
@@ -703,7 +709,7 @@ namespace ColorMatch3D
                                 cube[redQuadrant, greenQuadrant, blueQuadrant] = tmpFloatColor;
                             } else
                             {
-                                cube[redQuadrant, greenQuadrant, blueQuadrant].color.X = float.NaN;
+                                cube[redQuadrant, greenQuadrant, blueQuadrant].color = NaNColor;
                             }
                         }
                         else

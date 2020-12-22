@@ -132,6 +132,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ByteImage.cs" />
+    <Compile Include="FloatImage.cs" />
     <Compile Include="Helpers.cs" />
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>

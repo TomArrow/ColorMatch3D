@@ -115,6 +115,7 @@
                 <WrapPanel>
                     <RadioButton x:Name="aggrAbsolute_radio" Checked="AggrVariable_radio_Checked">Absolute color</RadioButton>
                     <RadioButton x:Name="aggrVector_radio" IsChecked="True" Checked="AggrVariable_radio_Checked" ToolTip="Aggregates the vector difference of color between source and target image instead of the absolute color value.">Vector</RadioButton>
+                    <RadioButton x:Name="aggrVectorFactor_radio" Checked="AggrVariable_radio_Checked" ToolTip="Aggregates the vector factor of color between source and target image. Aka the factor to multiply each color component by to reach the correct result.">VectorFactor</RadioButton>
                 </WrapPanel>
                 <Label ToolTip="Use interpolation if the 3D LUT needs to generalize better and not merely fit one image">Interpolation</Label>
                 <WrapPanel>
