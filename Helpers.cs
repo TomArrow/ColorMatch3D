@@ -95,7 +95,7 @@ namespace ColorMatch3D
 
 
         // Simple 1D Greyscale regrade of one image to another. Basically just to match brightness, that's all.
-        static public FloatImage Regrade1DHistogram(ByteImage testImage, ByteImage referenceImage, int percentileSubdivisions = 100, int smoothradius=20, float smoothIntensity = 0.5f)
+        static public FloatImage Regrade1DHistogram(ByteImage testImage, ByteImage referenceImage, int percentileSubdivisions = 100, int smoothradius=20, float smoothIntensity = 1f)
         {
 
             byte[] testImageData = testImage.imageData;
@@ -279,18 +279,59 @@ namespace ColorMatch3D
             // TODO find a way to protect blacks
             if(smoothIntensity > 0)
             {
+                float[] elevation = new float[factorsLUT.Length - 1];
+                float[] elevationSmoothed = new float[factorsLUT.Length - 1];
+                float totalElevation = 0;
+                float totalElevationSmoothed = 0;
+                float blackPoint = float.PositiveInfinity;
+                float whitePoint = 0;
+                float startPoint = factorsLUT[0].value;
+
+
+                if (factorsLUT[0].value > whitePoint)
+                {
+                    whitePoint = factorsLUT[0].value;
+                }
+
+                if (factorsLUT[0].value < blackPoint)
+                {
+                    blackPoint = factorsLUT[0].value;
+                }
+
+
+                float blackPointSmoothed = blackPoint;
+                float whitePointSmoothed = whitePoint;
+
+                // We are not smoothing the raw data but the rise.
+                for (int i = 0; i < elevation.Length; i++)
+                {
+                    elevation[i] = factorsLUT[i + 1].value - factorsLUT[i].value;
+                    totalElevation += elevation[i];
+                    if(factorsLUT[i + 1].value > whitePoint)
+                    {
+                        whitePoint = factorsLUT[i + 1].value;
+                    }
+
+                    if (factorsLUT[i + 1].value < blackPoint)
+                    {
+                        blackPoint = factorsLUT[i + 1].value;
+                    }
+                }
 
                 float averageValue = 0;
                 float averageDivisor = 0;
                 float invertedSmoothIntensity = 1 - smoothIntensity;
+
+                float currentRealValueWithSmoothing = factorsLUT[0].value;
+
                 FloatIssetable[] factorsLUTSmoothed = new FloatIssetable[factorsLUT.Length];
-                for (int i = 0; i < 256; i++)
+                for (int i = 0; i < 255; i++)
                 {
                     if (i == 0)
                     {
                         for (int a = 0; a < smoothradius - 1; a++)
                         {
-                            averageValue += factorsLUT[a].value;
+                            averageValue += elevation[a];
                             averageDivisor += 1;
                         }
                     }
@@ -298,28 +339,50 @@ namespace ColorMatch3D
                     {
                         if (i <= smoothradius)
                         {
-                            averageValue += factorsLUT[0].value;
+                            averageValue += elevation[0];
                             averageDivisor++;
                         } else
                         {
-                            averageValue -= factorsLUT[i - 5].value;
+                            averageValue -= elevation[i - smoothradius-1];
                             averageDivisor--;
                         }
-                        if(i+smoothradius < 256)
+                        if(i+smoothradius < 255)
                         {
-                            averageValue += factorsLUT[i + smoothradius].value;
+                            averageValue += elevation[i + smoothradius];
                             averageDivisor++;
                         } else
                         {
-                            averageValue -= factorsLUT[255].value;
+                            averageValue -= elevation[254];
                             averageDivisor--;
                         }
                     }
 
-                    factorsLUTSmoothed[i].value = invertedSmoothIntensity * factorsLUT[i].value + smoothIntensity * (averageValue / averageDivisor);
-                    factorsLUTSmoothed[i].isSet = true;
+                    elevationSmoothed[i] = invertedSmoothIntensity * elevation[i] + smoothIntensity * (averageValue / averageDivisor);
+                    totalElevationSmoothed += elevationSmoothed[i];
+                    currentRealValueWithSmoothing += elevationSmoothed[i];
+                    if (currentRealValueWithSmoothing > whitePointSmoothed)
+                    {
+                        whitePointSmoothed = currentRealValueWithSmoothing;
+                    }
+
+                    if (currentRealValueWithSmoothing < blackPointSmoothed)
+                    {
+                        blackPointSmoothed = currentRealValueWithSmoothing;
+                    }
                 }
-                factorsLUT = factorsLUTSmoothed;
+
+                // Need a last pass to make sure blacks and whites are still the same, thus:
+                float scaleFactor = (whitePointSmoothed-blackPointSmoothed)/(whitePoint-blackPoint);
+                for (int i = 0; i < 255; i++)
+                {
+                    elevationSmoothed[i] /= scaleFactor;
+                }
+
+                // Transfer back to FactorsLUT
+                for (int i = 0; i < 255; i++)
+                {
+                    factorsLUT[i+1].value = factorsLUT[i].value+elevationSmoothed[i];
+                }
             }
 
             // 6. APPLY LUT

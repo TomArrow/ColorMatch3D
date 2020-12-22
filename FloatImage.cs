@@ -67,5 +67,34 @@ namespace ColorMatch3D
 
             return new ByteImage(output, stride, width, height, pixelFormat);
         }
+
+        static public FloatImage FromByteImage(ByteImage inputImage)
+        {
+            byte[] inputImageData = inputImage.imageData;
+            int width = inputImage.width, height = inputImage.height, stride = inputImage.stride;
+            PixelFormat pixelFormat = inputImage.pixelFormat;
+
+            float[] output = new float[inputImageData.Length];
+            int strideHere = 0;
+            int xX4;
+            int offsetHere;
+
+            for (int y = 0; y < height; y++)
+            {
+                strideHere = stride * y;
+                for (int x = 0; x < width; x++) // 4 bc RGBA
+                {
+                    xX4 = x * 4;
+                    offsetHere = strideHere + xX4;
+
+                    output[offsetHere] = (float)inputImageData[offsetHere];
+                    output[offsetHere + 1] = (float)inputImageData[offsetHere +1];
+                    output[offsetHere + 2] = (float)inputImageData[offsetHere +2 ];
+                    output[offsetHere + 3] = (float)inputImageData[offsetHere +3];
+                }
+            }
+
+            return new FloatImage(output, stride, width, height, pixelFormat);
+        }
     }
 }

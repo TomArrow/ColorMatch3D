@@ -83,16 +83,40 @@
 
                 <Border BorderThickness="1" BorderBrush="LightGray" Margin="5"></Border>
 
-                <Label ToolTip="Blurs the two images with a large radius, divides them and multiplies the result with one of the images to match the other one. Should get rid of big brightness irregularities between two images, like from a hotspot in one image, or large sized power windows, but precision of contrast in the final match can suffer.">Lowpass-Equalization</Label>
-                <WrapPanel>
-                    <RadioButton x:Name="lowPassMatchNone_radio" Checked="LowPassMatch_radio_Checked" IsChecked="True">None</RadioButton>
-                    <RadioButton x:Name="lowPassMatchReferenceToSource_radio" Checked="LowPassMatch_radio_Checked">Reference to test (recommended)</RadioButton>
-                </WrapPanel>
-                <WrapPanel>
-                    <Label>Blur radius</Label>
-                    <TextBox MinWidth="50" x:Name="lowpassEqualizeBlurRadius_Text" TextChanged="LowpassEqualizeBlurRadius_Text_TextChanged">200</TextBox></WrapPanel>
+                <GroupBox Header="Lowpass Equalization (PRE)"  ToolTip="Blurs the two images with a large radius, divides them and multiplies the result with one of the images to match the other one. Should get rid of big brightness irregularities between two images, like from a hotspot in one image, or large sized power windows, but precision of contrast in the final match can suffer.">
+                    <StackPanel>
+                        <WrapPanel>
+                            <RadioButton x:Name="lowPassMatchNone_radio" Checked="LowPassMatch_radio_Checked">None</RadioButton>
+                            <RadioButton x:Name="lowPassMatchReferenceToSource_radio" Checked="LowPassMatch_radio_Checked" IsChecked="True">Reference to test</RadioButton>
+                        </WrapPanel>
+                        <WrapPanel  IsEnabled="{Binding ElementName=lowPassMatchReferenceToSource_radio, Path=IsChecked}">
+                            <Label>Lowpass radius</Label>
+                            <TextBox  MinWidth="50" x:Name="lowpassEqualizeBlurRadius_Text" TextChanged="Lowpass_Text_TextChanged">10</TextBox>
+                        </WrapPanel>
+                        <GroupBox Header="Histogram Match (to preserve contrast)" FontSize="10" IsEnabled="{Binding ElementName=lowPassMatchReferenceToSource_radio, Path=IsChecked}">
+                            <StackPanel>
+
+                                <WrapPanel>
+                                    <RadioButton x:Name="lowPassHistoMatchYes_radio" Checked="LowPassMatch_radio_Checked" IsChecked="True">Yes</RadioButton>
+                                    <RadioButton x:Name="lowPassHistoMatchNo_radio" Checked="LowPassMatch_radio_Checked">No</RadioButton>
+                                </WrapPanel>
+                                <WrapPanel>
+                                    <Label>Percentile subdivisions</Label>
+                                    <TextBox MinWidth="50" x:Name="lowPassPercentileSubdivisions_Text" TextChanged="Lowpass_Text_TextChanged">100</TextBox>
+                                </WrapPanel>
+                                <WrapPanel>
+                                    <Label>Smoothing radius</Label>
+                                    <TextBox MinWidth="50" x:Name="lowPassHistoMatchSmoothRadius_Text" TextChanged="Lowpass_Text_TextChanged">20</TextBox>
+                                </WrapPanel>
+                                <WrapPanel>
+                                    <Label>Smoothing intensity (0-1)</Label>
+                                    <TextBox MinWidth="50" x:Name="lowPassSmoothingIntensity_Text" TextChanged="Lowpass_Text_TextChanged">1</TextBox>
+                                </WrapPanel>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </GroupBox>
                 <Border BorderThickness="1" BorderBrush="LightGray" Margin="5"></Border>
-                
                 
                 <Label>Matching Method</Label>
                 <WrapPanel>
@@ -115,7 +139,7 @@
                 <WrapPanel>
                     <RadioButton x:Name="aggrAbsolute_radio" Checked="AggrVariable_radio_Checked">Absolute color</RadioButton>
                     <RadioButton x:Name="aggrVector_radio" IsChecked="True" Checked="AggrVariable_radio_Checked" ToolTip="Aggregates the vector difference of color between source and target image instead of the absolute color value.">Vector</RadioButton>
-                    <RadioButton x:Name="aggrVectorFactor_radio" Checked="AggrVariable_radio_Checked" ToolTip="Aggregates the vector factor of color between source and target image. Aka the factor to multiply each color component by to reach the correct result.">VectorFactor</RadioButton>
+                    <RadioButton IsEnabled="False" x:Name="aggrVectorFactor_radio" Checked="AggrVariable_radio_Checked" ToolTip="Aggregates the vector factor of color between source and target image. Aka the factor to multiply each color component by to reach the correct result.">VectorFactor</RadioButton>
                 </WrapPanel>
                 <Label ToolTip="Use interpolation if the 3D LUT needs to generalize better and not merely fit one image">Interpolation</Label>
                 <WrapPanel>

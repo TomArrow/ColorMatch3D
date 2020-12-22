@@ -10,6 +10,7 @@ using Microsoft.Win32;
 using System.Threading;
 using System.Numerics;
 using Win = System.Windows;
+using System.Windows.Controls;
 
 namespace ColorMatch3D
 {
@@ -25,80 +26,82 @@ namespace ColorMatch3D
     /// </summary>
     public partial class MainWindow : win.Window
     {
+        
         public MainWindow()
         {
             InitializeComponent();
             //Status_txt.Text = "SIMD: " + Vector.IsHardwareAccelerated.ToString();
         }
 
-        private void readGUISettings()
+        private void readGUISettings(string nameOfElement = "")
         {
 
 
             try {
 
+                switch (nameOfElement)
+                {
+                    case "lowpassEqualizeBlurRadius_Text":
+                        lowPassEqualizeBlurRadius = float.Parse(lowpassEqualizeBlurRadius_Text.Text);
+                        break;
+                    case "lowPassPercentileSubdivisions_Text":
+                        lowPass1DRegradePercentileSubdivisions = int.Parse(lowPassPercentileSubdivisions_Text.Text);
+                        break;
+                    case "lowPassSmoothingIntensity_Text":
+                        lowPass1DRegradeSmoothingIntensity = float.Parse(lowPassSmoothingIntensity_Text.Text);
+                        break;
+                    case "lowPassHistoMatchSmoothRadius_Text":
+                        lowPass1DRegradeSmoothingRadius = int.Parse(lowPassHistoMatchSmoothRadius_Text.Text);
+                        break;
 
-                lowPassEqualizeBlurRadius = float.Parse(lowpassEqualizeBlurRadius_Text.Text);
+                    case "lowPassHistoMatchYes_radio":
+                        lowPass1DRegrade = LowPass1DRegrade.HISTOGRAM;
+                        break;
+                    case "lowPassHistoMatchNo_radio":
+                        lowPass1DRegrade = LowPass1DRegrade.NONE;
+                        break;
+                    case "lowPassMatchNone_radio":
+                        lowPassMatching = LowPassMatching.NONE;
+                        break;
+                    case "lowPassMatchReferenceToSource_radio":
+                        lowPassMatching = LowPassMatching.REFERENCETOTEST;
+                        break;
+                    case "useSRGBAggrSpace_radio":
+                        aggregateColorSpace = AggregateColorSpace.SRGB;
+                        break;
+                    case "useSRGBLinearAggrSpace_radio":
+                        aggregateColorSpace = AggregateColorSpace.SRGBLINEAR;
+                        break;
+                    case "useXYZAggrSpace_radio":
+                        aggregateColorSpace = AggregateColorSpace.XYZ;
+                        break;
+                    case "useCIELabAggrSpace_radio":
+                        aggregateColorSpace = AggregateColorSpace.CIELAB;
+                        break;
+                    case "aggrAbsolute_radio":
+                        aggregateWhat = AggregateVariable.ABSOLUTE;
+                        break;
+                    case "aggrVector_radio":
+                        aggregateWhat = AggregateVariable.VECTOR;
+                        break;
+                    case "interpNone_radio":
+                        interpolationType = InterpolationType.NONE;
+                        break;
+                    case "interpSingleLinear_radio":
+                        interpolationType = InterpolationType.SINGLELINEAR;
+                        break;
+                    case "interpDualLinear_radio":
+                        interpolationType = InterpolationType.DUALLINEAR;
+                        break;
+                    default:
+                        break;
+                }
+
+
             }
             catch (Exception e) { //fuck, it's just called too early and the objects dont exist. whatever.
-            }
-            try {
 
-
-                
-
-                if (lowPassMatchNone_radio.IsChecked == true)
-                {
-                    lowPassMatching = LowPassMatching.NONE;
-                }
-                if (lowPassMatchReferenceToSource_radio.IsChecked == true)
-                {
-                    lowPassMatching = LowPassMatching.REFERENCETOTEST;
-                }
-
-
-                if (useSRGBAggrSpace_radio.IsChecked == true)
-                {
-                    aggregateColorSpace = AggregateColorSpace.SRGB;
-                }
-                if (useSRGBLinearAggrSpace_radio.IsChecked == true)
-                {
-                    aggregateColorSpace = AggregateColorSpace.SRGBLINEAR;
-                }
-                if (useXYZAggrSpace_radio.IsChecked == true)
-                {
-                    aggregateColorSpace = AggregateColorSpace.XYZ;
-                }
-                if (useCIELabAggrSpace_radio.IsChecked == true)
-                {
-                    aggregateColorSpace = AggregateColorSpace.CIELAB;
-                }
-
-                if (aggrAbsolute_radio.IsChecked == true)
-                {
-                    aggregateWhat = AggregateVariable.ABSOLUTE;
-                }
-                if(aggrVector_radio.IsChecked == true)
-                {
-                    aggregateWhat = AggregateVariable.VECTOR;
-                }
-                if(interpNone_radio.IsChecked == true)
-                {
-                    interpolationType = InterpolationType.NONE;
-                }
-                if (interpSingleLinear_radio.IsChecked == true)
-                {
-                    interpolationType = InterpolationType.SINGLELINEAR;
-                }
-                if (interpDualLinear_radio.IsChecked == true)
-                {
-                    interpolationType = InterpolationType.DUALLINEAR;
-                }
-                
-
-
-            }
-            catch (Exception e) { //fuck, it's just called too early and the objects dont exist. whatever.
+                win.MessageBox.Show("Caution. Invalid values entered. Will prevent proper setting of data. "+e.Message+" "+e.StackTrace);
             }
             //Win.MessageBox.Show(aggregateWhat.ToString());
         }
@@ -115,8 +118,14 @@ namespace ColorMatch3D
         enum LowPassMatching { NONE, REFERENCETOTEST, TESTTOREFERENCE};
         LowPassMatching lowPassMatching = LowPassMatching.NONE;
 
-        float lowPassEqualizeBlurRadius = 200f;
+        float lowPassEqualizeBlurRadius = 10f;
 
+        enum LowPass1DRegrade { NONE, HISTOGRAM }
+        LowPass1DRegrade lowPass1DRegrade = LowPass1DRegrade.HISTOGRAM;
+
+        float lowPass1DRegradeSmoothingIntensity = 1f;
+        int lowPass1DRegradeSmoothingRadius = 20;
+        int lowPass1DRegradePercentileSubdivisions = 100;
 
 
         const int R = 0;
@@ -387,7 +396,15 @@ namespace ColorMatch3D
 
                 ByteImage testBitmapBlurred = Helpers.ToGreyscale(Helpers.BitmapToByteArray(Helpers.ResizeBitmapHQ(Helpers.ResizeBitmapHQ(testImage, blurSizeX, blurSizeY),resX, resY)));
                 ByteImage referenceBitmapBlurred = Helpers.ToGreyscale(Helpers.BitmapToByteArray(Helpers.ResizeBitmapHQ(Helpers.ResizeBitmapHQ(referenceImage, blurSizeX, blurSizeY),resX, resY)));
-                FloatImage testBitmapBlurred1DRegradeToreferenceBitmap = Helpers.Regrade1DHistogram(testBitmapBlurred, referenceBitmapBlurred,100);
+
+                FloatImage testBitmapBlurred1DRegradeToreferenceBitmap = new FloatImage(new float[0], 0, 0, 0, System.Drawing.Imaging.PixelFormat.DontCare); // just initializing so VS doesn't moan and bitch
+                if (lowPass1DRegrade == LowPass1DRegrade.HISTOGRAM)
+                {
+                    testBitmapBlurred1DRegradeToreferenceBitmap = Helpers.Regrade1DHistogram(testBitmapBlurred, referenceBitmapBlurred, lowPass1DRegradePercentileSubdivisions,lowPass1DRegradeSmoothingRadius,lowPass1DRegradeSmoothingIntensity);
+                } else if (lowPass1DRegrade == LowPass1DRegrade.NONE)
+                {
+                    testBitmapBlurred1DRegradeToreferenceBitmap = FloatImage.FromByteImage(testBitmapBlurred);
+                }
 
                 /*progress.Report(new MatchReport("Blurring test image...."));
                 ByteImage testBitmapBlurred = Helpers.BlurImage(testBitmap,50);
@@ -919,7 +936,7 @@ namespace ColorMatch3D
                         //hintsRequired++;
                     }
 
-                    progress.Report(new MatchReport("Interpolating, Dual Linear algorithm [" + unsolvedNaNs + " unsolved remaining, "+hintsRequired+ " hints required] "));
+                    progress.Report(new MatchReport("Interpolating, "+interpolationType+" algorithm [" + unsolvedNaNs + " unsolved remaining, "+hintsRequired+ " hints required] "));
                 } while (unsolvedNaNs > 0);
             }
 
@@ -1066,28 +1083,33 @@ namespace ColorMatch3D
 
         private void AggrVariable_radio_Checked(object sender, win.RoutedEventArgs e)
         {
-            readGUISettings();
+            win.FrameworkElement element = e.Source as win.FrameworkElement;
+            readGUISettings(element.Name);
         }
 
         private void Interp_radio_Checked(object sender, win.RoutedEventArgs e)
         {
-            readGUISettings();
+            win.FrameworkElement element = e.Source as win.FrameworkElement;
+            readGUISettings(element.Name);
         }
 
         private void AggrSpace_radio_Checked(object sender, win.RoutedEventArgs e)
         {
-            readGUISettings();
+            win.FrameworkElement element = e.Source as win.FrameworkElement;
+            readGUISettings(element.Name);
         }
 
         private void LowPassMatch_radio_Checked(object sender, win.RoutedEventArgs e)
         {
-            readGUISettings();
+            win.FrameworkElement element = e.Source as win.FrameworkElement;
+            readGUISettings(element.Name);
         }
 
 
-        private void LowpassEqualizeBlurRadius_Text_TextChanged(object sender, win.Controls.TextChangedEventArgs e)
+        private void Lowpass_Text_TextChanged(object sender, win.Controls.TextChangedEventArgs e)
         {
-            readGUISettings();
+            win.FrameworkElement element = e.Source as win.FrameworkElement;
+            readGUISettings(element.Name);
         }
 
         /*private void updateIter()
