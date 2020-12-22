@@ -95,7 +95,7 @@ namespace ColorMatch3D
 
 
         // Simple 1D Greyscale regrade of one image to another. Basically just to match brightness, that's all.
-        static public FloatImage Regrade1DHistogram(ByteImage testImage, ByteImage referenceImage, int percentileSubdivisions = 100)
+        static public FloatImage Regrade1DHistogram(ByteImage testImage, ByteImage referenceImage, int percentileSubdivisions = 100, int smoothradius=20, float smoothIntensity = 0.5f)
         {
 
             byte[] testImageData = testImage.imageData;
@@ -274,7 +274,55 @@ namespace ColorMatch3D
                 }
             }
 
-            // 5. APPLY LUT
+            // 5. SMOOTH LUT
+            // Simple 1D "Box" blur. So, a line blur?
+            // TODO find a way to protect blacks
+            if(smoothIntensity > 0)
+            {
+
+                float averageValue = 0;
+                float averageDivisor = 0;
+                float invertedSmoothIntensity = 1 - smoothIntensity;
+                FloatIssetable[] factorsLUTSmoothed = new FloatIssetable[factorsLUT.Length];
+                for (int i = 0; i < 256; i++)
+                {
+                    if (i == 0)
+                    {
+                        for (int a = 0; a < smoothradius - 1; a++)
+                        {
+                            averageValue += factorsLUT[a].value;
+                            averageDivisor += 1;
+                        }
+                    }
+                    else
+                    {
+                        if (i <= smoothradius)
+                        {
+                            averageValue += factorsLUT[0].value;
+                            averageDivisor++;
+                        } else
+                        {
+                            averageValue -= factorsLUT[i - 5].value;
+                            averageDivisor--;
+                        }
+                        if(i+smoothradius < 256)
+                        {
+                            averageValue += factorsLUT[i + smoothradius].value;
+                            averageDivisor++;
+                        } else
+                        {
+                            averageValue -= factorsLUT[255].value;
+                            averageDivisor--;
+                        }
+                    }
+
+                    factorsLUTSmoothed[i].value = invertedSmoothIntensity * factorsLUT[i].value + smoothIntensity * (averageValue / averageDivisor);
+                    factorsLUTSmoothed[i].isSet = true;
+                }
+                factorsLUT = factorsLUTSmoothed;
+            }
+
+            // 6. APPLY LUT
             for (int y = 0; y < height; y++)
             {
                 strideHereTest = strideTest * y;

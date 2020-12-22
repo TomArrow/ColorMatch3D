@@ -387,7 +387,7 @@ namespace ColorMatch3D
 
                 ByteImage testBitmapBlurred = Helpers.ToGreyscale(Helpers.BitmapToByteArray(Helpers.ResizeBitmapHQ(Helpers.ResizeBitmapHQ(testImage, blurSizeX, blurSizeY),resX, resY)));
                 ByteImage referenceBitmapBlurred = Helpers.ToGreyscale(Helpers.BitmapToByteArray(Helpers.ResizeBitmapHQ(Helpers.ResizeBitmapHQ(referenceImage, blurSizeX, blurSizeY),resX, resY)));
-                FloatImage testBitmapBlurred1DRegradeToreferenceBitmap = Helpers.Regrade1DHistogram(testBitmapBlurred, referenceBitmapBlurred,10);
+                FloatImage testBitmapBlurred1DRegradeToreferenceBitmap = Helpers.Regrade1DHistogram(testBitmapBlurred, referenceBitmapBlurred,100);
 
                 /*progress.Report(new MatchReport("Blurring test image...."));
                 ByteImage testBitmapBlurred = Helpers.BlurImage(testBitmap,50);
@@ -409,9 +409,10 @@ namespace ColorMatch3D
                         testImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 4 + 1];
                         testImgData[x, y, R] = testBitmap[testBitmap.stride * y + x * 4 + 2];
 
-                        refImgData[x, y, B] = ((float)referenceBitmap[referenceBitmap.stride * y + x * 4] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4] * testBitmapBlurred1DRegradeToreferenceBitmap[testBitmapBlurred1DRegradeToreferenceBitmap.stride * y + x * 4]);
-                        refImgData[x, y, G] =  ((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 1] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 1] * testBitmapBlurred1DRegradeToreferenceBitmap[testBitmapBlurred1DRegradeToreferenceBitmap.stride * y + x * 4 + 1]);
-                        refImgData[x, y, R] =  ((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 2] / (float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 2] * testBitmapBlurred1DRegradeToreferenceBitmap[testBitmapBlurred1DRegradeToreferenceBitmap.stride * y + x * 4 + 2]);
+                        // The -0.1 stuff is to avoid division by zero.
+                        refImgData[x, y, B] = -0.1f+ (((float)referenceBitmap[referenceBitmap.stride * y + x * 4]+0.1f) / ((float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4] + 0.1f) * (testBitmapBlurred1DRegradeToreferenceBitmap[testBitmapBlurred1DRegradeToreferenceBitmap.stride * y + x * 4] + 0.1f));
+                        refImgData[x, y, G] = -0.1f + (((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 1] + 0.1f) / ((float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 1] + 0.1f) * (testBitmapBlurred1DRegradeToreferenceBitmap[testBitmapBlurred1DRegradeToreferenceBitmap.stride * y + x * 4 + 1] + 0.1f));
+                        refImgData[x, y, R] = -0.1f + (((float)referenceBitmap[referenceBitmap.stride * y + x * 4 + 2] + 0.1f) / ((float)referenceBitmapBlurred[referenceBitmapBlurred.stride * y + x * 4 + 2] + 0.1f) * (testBitmapBlurred1DRegradeToreferenceBitmap[testBitmapBlurred1DRegradeToreferenceBitmap.stride * y + x * 4 + 2] + 0.1f));
 
                         /*debugBitmap.SetPixel(x, y, Color.FromArgb(testBitmap[testBitmap.stride * y + x * 3],
                             refImgData[x, y, G] = testBitmap[testBitmap.stride * y + x * 3 + 1],
