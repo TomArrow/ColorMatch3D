@@ -210,7 +210,7 @@ namespace ColorMatch3D
             FloatIssetable[] factorsLUT = new FloatIssetable[256];
             for (int i=0; i < percentilesTest.Length; i++)
             {
-                factorsLUT[(int)Math.Floor(percentilesTest[i].value / 256)].value = percentilesTest[i].value == 0 ? 1 : percentilesRef[i].value / percentilesTest[i].value;
+                factorsLUT[(int)Math.Floor(percentilesTest[i].value / 256)].value = percentilesTest[i].value == 0 ? 0 : percentilesRef[i].value / percentilesTest[i].value;
                 factorsLUT[(int)Math.Floor(percentilesTest[i].value / 256)].isSet = true;
             }
 
@@ -318,8 +318,8 @@ namespace ColorMatch3D
                     }
                 }
 
-                float averageValue = 0;
-                float averageDivisor = 0;
+                double averageValue = 0;
+                double averageDivisor = 0;
                 float invertedSmoothIntensity = 1 - smoothIntensity;
 
                 float currentRealValueWithSmoothing = factorsLUT[0].value;
@@ -329,7 +329,9 @@ namespace ColorMatch3D
                 {
                     if (i == 0)
                     {
-                        for (int a = 0; a < smoothradius - 1; a++)
+                        // let's say radius 5
+                        // goes up to 4, so: 0 1 2 3 4 5
+                        for (int a = 0; a <= smoothradius; a++)
                         {
                             averageValue += elevation[a];
                             averageDivisor += 1;
@@ -337,15 +339,20 @@ namespace ColorMatch3D
                     }
                     else
                     {
+                        // i == 5
+                        // 0 1 2 3 4 5
                         if (i <= smoothradius)
                         {
                             averageValue += elevation[0];
                             averageDivisor++;
                         } else
                         {
-                            averageValue -= elevation[i - smoothradius-1];
+                            // i == 6 : 0 1 2 3 4 5 6
+                            // i-5 = 1. i-5-1 = 0
+                            averageValue -= elevation[i - (smoothradius-1)];
                             averageDivisor--;
                         }
+                        // i + 5 = 254 : i == 249: 249 250 251 252 253 254
                         if(i+smoothradius < 255)
                         {
                             averageValue += elevation[i + smoothradius];
@@ -357,7 +364,7 @@ namespace ColorMatch3D
                         }
                     }
 
-                    elevationSmoothed[i] = invertedSmoothIntensity * elevation[i] + smoothIntensity * (averageValue / averageDivisor);
+                    elevationSmoothed[i] = (float)(invertedSmoothIntensity * elevation[i] + smoothIntensity * (averageValue / averageDivisor));
                     totalElevationSmoothed += elevationSmoothed[i];
                     currentRealValueWithSmoothing += elevationSmoothed[i];
                     if (currentRealValueWithSmoothing > whitePointSmoothed)
