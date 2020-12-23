@@ -274,28 +274,35 @@ namespace ColorMatch3D
                 }
             }
 
-            // 5. SMOOTH LUT
+            // 5. Turn FactorsLUT into actual values LUT for smoothing
+            float[] valuesLUT = new float[factorsLUT.Length];
+            for(int i = 0; i < factorsLUT.Length; i++)
+            {
+                valuesLUT[i] = factorsLUT[i].value * i;
+            }
+
+            // 6. SMOOTH LUT
             // Simple 1D "Box" blur. So, a line blur?
             // TODO find a way to protect blacks
             if(smoothIntensity > 0)
             {
-                float[] elevation = new float[factorsLUT.Length - 1];
-                float[] elevationSmoothed = new float[factorsLUT.Length - 1];
+                float[] elevation = new float[valuesLUT.Length - 1];
+                float[] elevationSmoothed = new float[valuesLUT.Length - 1];
                 float totalElevation = 0;
                 float totalElevationSmoothed = 0;
                 float blackPoint = float.PositiveInfinity;
                 float whitePoint = 0;
-                float startPoint = factorsLUT[0].value;
+                float startPoint = valuesLUT[0];
 
 
-                if (factorsLUT[0].value > whitePoint)
+                if (valuesLUT[0] > whitePoint)
                 {
-                    whitePoint = factorsLUT[0].value;
+                    whitePoint = valuesLUT[0];
                 }
 
-                if (factorsLUT[0].value < blackPoint)
+                if (valuesLUT[0] < blackPoint)
                 {
-                    blackPoint = factorsLUT[0].value;
+                    blackPoint = valuesLUT[0];
                 }
 
 
@@ -305,16 +312,16 @@ namespace ColorMatch3D
                 // We are not smoothing the raw data but the rise.
                 for (int i = 0; i < elevation.Length; i++)
                 {
-                    elevation[i] = factorsLUT[i + 1].value - factorsLUT[i].value;
+                    elevation[i] = valuesLUT[i + 1] - valuesLUT[i];
                     totalElevation += elevation[i];
-                    if(factorsLUT[i + 1].value > whitePoint)
+                    if(valuesLUT[i + 1] > whitePoint)
                     {
-                        whitePoint = factorsLUT[i + 1].value;
+                        whitePoint = valuesLUT[i + 1];
                     }
 
-                    if (factorsLUT[i + 1].value < blackPoint)
+                    if (valuesLUT[i + 1] < blackPoint)
                     {
-                        blackPoint = factorsLUT[i + 1].value;
+                        blackPoint = valuesLUT[i + 1];
                     }
                 }
 
@@ -322,9 +329,9 @@ namespace ColorMatch3D
                 double averageDivisor = 0;
                 float invertedSmoothIntensity = 1 - smoothIntensity;
 
-                float currentRealValueWithSmoothing = factorsLUT[0].value;
+                float currentRealValueWithSmoothing = valuesLUT[0];
 
-                FloatIssetable[] factorsLUTSmoothed = new FloatIssetable[factorsLUT.Length];
+                FloatIssetable[] factorsLUTSmoothed = new FloatIssetable[valuesLUT.Length];
                 for (int i = 0; i < 255; i++)
                 {
                     if (i == 0)
@@ -388,11 +395,17 @@ namespace ColorMatch3D
                 // Transfer back to FactorsLUT
                 for (int i = 0; i < 255; i++)
                 {
-                    factorsLUT[i+1].value = factorsLUT[i].value+elevationSmoothed[i];
+                    valuesLUT[i+1] = valuesLUT[i]+elevationSmoothed[i];
                 }
             }
 
-            // 6. APPLY LUT
+            // 7. Turn valuesLUT back into factorsLUT
+            for (int i = 0; i < factorsLUT.Length; i++)
+            {
+                factorsLUT[i].value = valuesLUT[i]/i;
+            }
+
+            // 8. APPLY LUT
             for (int y = 0; y < height; y++)
             {
                 strideHereTest = strideTest * y;
