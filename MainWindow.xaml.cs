@@ -30,6 +30,7 @@ namespace ColorMatch3D
         public MainWindow()
         {
             InitializeComponent();
+            //win.Forms.MessageBox.Show(Helpers.CIELChabTosRGB((Helpers.sRGBToCIELChab(new Vector3 { X=128, Y=128, Z=128 }))).ToString());
             //Status_txt.Text = "SIMD: " + Vector.IsHardwareAccelerated.ToString();
         }
 
@@ -78,6 +79,9 @@ namespace ColorMatch3D
                     case "useCIELabAggrSpace_radio":
                         aggregateColorSpace = AggregateColorSpace.CIELAB;
                         break;
+                    case "useCIELChabAggrSpace_radio":
+                        aggregateColorSpace = AggregateColorSpace.CIELCHAB;
+                        break;
                     case "aggrAbsolute_radio":
                         aggregateWhat = AggregateVariable.ABSOLUTE;
                         break;
@@ -112,8 +116,8 @@ namespace ColorMatch3D
         enum InterpolationType { NONE, SINGLELINEAR, DUALLINEAR};
         InterpolationType interpolationType = InterpolationType.SINGLELINEAR;
 
-        enum AggregateColorSpace { SRGB, SRGBLINEAR, XYZ, CIELAB };
-        AggregateColorSpace aggregateColorSpace = AggregateColorSpace.CIELAB;
+        enum AggregateColorSpace { SRGB, SRGBLINEAR, XYZ, CIELAB, CIELCHAB };
+        AggregateColorSpace aggregateColorSpace = AggregateColorSpace.CIELCHAB;
 
         enum LowPassMatching { NONE, REFERENCETOTEST, TESTTOREFERENCE};
         LowPassMatching lowPassMatching = LowPassMatching.NONE;
@@ -535,6 +539,34 @@ namespace ColorMatch3D
                         thisPointLinear.color.Z = refImgData[x, y, B];
                         thisPointLinear.cordConverted = Helpers.sRGBToCIELab(thisPointLinear.cord);
                         thisPointLinear.color = Helpers.sRGBToCIELab(thisPointLinear.color);
+
+                    } else if (aggregateColorSpace == AggregateColorSpace.CIELCHAB)
+                    {
+                        /*
+                        tmpRGB.R = refImgData[x, y, R];
+                        tmpRGB.G = refImgData[x, y, G];
+                        tmpRGB.B = refImgData[x, y, B];
+                        tmpLab = tmpRGB.To<Lab>();
+
+                        thisPointLinear.color.X = (float)tmpLab.L;
+                        thisPointLinear.color.Y = (float)tmpLab.A;
+                        thisPointLinear.color.Z = (float)tmpLab.B;
+
+
+                        tmpRGB.R = thisPointLinear.cord.X;
+                        tmpRGB.G = thisPointLinear.cord.Y;
+                        tmpRGB.B = thisPointLinear.cord.Z;
+                        tmpLab = tmpRGB.To<Lab>();
+                        thisPointLinear.cordConverted.X = (float)tmpLab.L;
+                        thisPointLinear.cordConverted.Y = (float)tmpLab.A;
+                        thisPointLinear.cordConverted.Z = (float)tmpLab.B;
+                        */
+
+                        thisPointLinear.color.X = refImgData[x, y, R];
+                        thisPointLinear.color.Y = refImgData[x, y, G];
+                        thisPointLinear.color.Z = refImgData[x, y, B];
+                        thisPointLinear.cordConverted = Helpers.sRGBToCIELChab(thisPointLinear.cord);
+                        thisPointLinear.color = Helpers.sRGBToCIELChab(thisPointLinear.color);
 
                     } else if(aggregateColorSpace == AggregateColorSpace.SRGB)
                     {
@@ -983,6 +1015,36 @@ namespace ColorMatch3D
                                 */
 
                                 tmpColor = Helpers.XYZtoRGB(Helpers.CIELabToXYZ(tmpColor));
+
+                                cube[redQuadrant, greenQuadrant, blueQuadrant].color = tmpColor;
+
+                            }
+                            else if(aggregateColorSpace == AggregateColorSpace.CIELCHAB)
+                            {
+                                /*
+                                tmpRGB.R = absCoord.X;
+                                tmpRGB.G = absCoord.Y;
+                                tmpRGB.B = absCoord.Z;
+                                tmpLab = tmpRGB.To<Lab>();
+                                tmpColor.X = (float)tmpLab.L;
+                                tmpColor.Y = (float)tmpLab.A;
+                                tmpColor.Z = (float)tmpLab.B;
+                                */
+                                tmpColor = Helpers.sRGBToCIELChab(absCoord);
+                                
+                                tmpColor = tmpColor + cube[redQuadrant, greenQuadrant, blueQuadrant].color;
+                                /*
+                                tmpLab.L = tmpColor.X;
+                                tmpLab.A = tmpColor.Y;
+                                tmpLab.B = tmpColor.Z;
+                                tmpRGB = tmpLab.To<Rgb>();
+
+                                tmpColor.X = (float)tmpRGB.R;
+                                tmpColor.Y = (float)tmpRGB.G;
+                                tmpColor.Z = (float)tmpRGB.B;
+                                */
+
+                                tmpColor = Helpers.CIELChabTosRGB(tmpColor);
 
                                 cube[redQuadrant, greenQuadrant, blueQuadrant].color = tmpColor;
 

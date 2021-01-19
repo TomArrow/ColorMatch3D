@@ -133,8 +133,9 @@ namespace ColorMatch3D
                     offsetHereTest = strideHereTest + xX4;
                     offsetHereRef = strideHereRef + xX4;
 
-                    testLuma = (int) Math.Max(0,Math.Min(sixteenBitMax, ( ((int)testImageData[offsetHereTest] << 8)* 0.11f + 0.59f * ((int)testImageData[offsetHereTest + 1] << 8) + 0.3f * ((int)testImageData[offsetHereTest + 2] << 8))));
-                    refLuma = (int)Math.Max(0, Math.Min(sixteenBitMax, ( ((int)referenceImageData[offsetHereRef] << 8) * 0.11f + 0.59f * ((int)referenceImageData[offsetHereRef + 1] << 8) + 0.3f * ((int)referenceImageData[offsetHereRef + 2] << 8))));
+                    // Add 1 to avoid division by zero issues, subtract later again.
+                    testLuma = 1+(int) Math.Max(0,Math.Min(sixteenBitMax, ( ((int)testImageData[offsetHereTest] << 8)* 0.11f + 0.59f * ((int)testImageData[offsetHereTest + 1] << 8) + 0.3f * ((int)testImageData[offsetHereTest + 2] << 8))));
+                    refLuma = 1+(int)Math.Max(0, Math.Min(sixteenBitMax, ( ((int)referenceImageData[offsetHereRef] << 8) * 0.11f + 0.59f * ((int)referenceImageData[offsetHereRef + 1] << 8) + 0.3f * ((int)referenceImageData[offsetHereRef + 2] << 8))));
 
                     histogramTest[testLuma]++;
                     histogramRef[refLuma]++;
@@ -274,35 +275,29 @@ namespace ColorMatch3D
                 }
             }
 
-            // 5. Turn FactorsLUT into actual values LUT for smoothing
-            float[] valuesLUT = new float[factorsLUT.Length];
-            for(int i = 0; i < factorsLUT.Length; i++)
-            {
-                valuesLUT[i] = factorsLUT[i].value * i;
-            }
 
-            // 6. SMOOTH LUT
+            // 5. SMOOTH LUT
             // Simple 1D "Box" blur. So, a line blur?
             // TODO find a way to protect blacks
             if(smoothIntensity > 0)
             {
-                float[] elevation = new float[valuesLUT.Length - 1];
-                float[] elevationSmoothed = new float[valuesLUT.Length - 1];
+                float[] elevation = new float[factorsLUT.Length - 1];
+                float[] elevationSmoothed = new float[factorsLUT.Length - 1];
                 float totalElevation = 0;
                 float totalElevationSmoothed = 0;
                 float blackPoint = float.PositiveInfinity;
                 float whitePoint = 0;
-                float startPoint = valuesLUT[0];
+                float startPoint = factorsLUT[0].value;
 
 
-                if (valuesLUT[0] > whitePoint)
+                if (factorsLUT[0].value > whitePoint)
                 {
-                    whitePoint = valuesLUT[0];
+                    whitePoint = factorsLUT[0].value;
                 }
 
-                if (valuesLUT[0] < blackPoint)
+                if (factorsLUT[0].value < blackPoint)
                 {
-                    blackPoint = valuesLUT[0];
+                    blackPoint = factorsLUT[0].value;
                 }
 
 
@@ -312,16 +307,16 @@ namespace ColorMatch3D
                 // We are not smoothing the raw data but the rise.
                 for (int i = 0; i < elevation.Length; i++)
                 {
-                    elevation[i] = valuesLUT[i + 1] - valuesLUT[i];
+                    elevation[i] = factorsLUT[i + 1].value - factorsLUT[i].value;
                     totalElevation += elevation[i];
-                    if(valuesLUT[i + 1] > whitePoint)
+                    if(factorsLUT[i + 1].value > whitePoint)
                     {
-                        whitePoint = valuesLUT[i + 1];
+                        whitePoint = factorsLUT[i + 1].value;
                     }
 
-                    if (valuesLUT[i + 1] < blackPoint)
+                    if (factorsLUT[i + 1].value < blackPoint)
                     {
-                        blackPoint = valuesLUT[i + 1];
+                        blackPoint = factorsLUT[i + 1].value;
                     }
                 }
 
@@ -329,9 +324,9 @@ namespace ColorMatch3D
                 double averageDivisor = 0;
                 float invertedSmoothIntensity = 1 - smoothIntensity;
 
-                float currentRealValueWithSmoothing = valuesLUT[0];
+                float currentRealValueWithSmoothing = factorsLUT[0].value;
 
-                FloatIssetable[] factorsLUTSmoothed = new FloatIssetable[valuesLUT.Length];
+                FloatIssetable[] factorsLUTSmoothed = new FloatIssetable[factorsLUT.Length];
                 for (int i = 0; i < 255; i++)
                 {
                     if (i == 0)
@@ -395,17 +390,11 @@ namespace ColorMatch3D
                 // Transfer back to FactorsLUT
                 for (int i = 0; i < 255; i++)
                 {
-                    valuesLUT[i+1] = valuesLUT[i]+elevationSmoothed[i];
+                    factorsLUT[i+1].value = factorsLUT[i].value+elevationSmoothed[i];
                 }
             }
 
-            // 7. Turn valuesLUT back into factorsLUT
-            for (int i = 0; i < factorsLUT.Length; i++)
-            {
-                factorsLUT[i].value = valuesLUT[i]/i;
-            }
-
-            // 8. APPLY LUT
+            // 6. APPLY LUT
             for (int y = 0; y < height; y++)
             {
                 strideHereTest = strideTest * y;
@@ -551,6 +540,37 @@ namespace ColorMatch3D
         static public Vector3 sRGBToCIELab(Vector3 sRGBInput)
         {
             return XYZToCIELab(sRGBToXYZ(sRGBInput));
+        }
+
+        // 
+        // CIELChabTosRGB((sRGBToCIELChab(new Vector3(){128,128,128})))
+        //
+        //
+        static public Vector3 sRGBToCIELChab(Vector3 sRGBInput)
+        {
+            return CIELabToCIELCHab(XYZToCIELab(sRGBToXYZ(sRGBInput)));
+        }
+
+        static public Vector3 CIELChabTosRGB(Vector3 lchabInput)
+        {
+            return XYZtoRGB(CIELabToXYZ(CIELCHabToCIELab(lchabInput)));
+        }
+
+        static public Vector3 CIELabToCIELCHab(Vector3 labInput)
+        {
+            Vector3 CIELCHabOutput = new Vector3();
+            CIELCHabOutput.X = labInput.X;
+            CIELCHabOutput.Y = (float)Math.Sqrt(Math.Pow(labInput.Y,2)+Math.Pow(labInput.Z,2));
+            CIELCHabOutput.Z = (float)Math.Atan2(labInput.Z,labInput.Y);
+            return CIELCHabOutput;
+        }
+        static public Vector3 CIELCHabToCIELab(Vector3 CIELCHabInput)
+        {
+            Vector3 labOutput = new Vector3();
+            labOutput.X = CIELCHabInput.X;
+            labOutput.Y = CIELCHabInput.Y * (float)Math.Cos(CIELCHabInput.Z);
+            labOutput.Z = CIELCHabInput.Y * (float)Math.Sin(CIELCHabInput.Z);
+            return labOutput;
         }
 
         //static private Matrix4x4 RGBtoXYZMatrix = new Matrix4x4(0.4124f,0.3576f,0.1805f,0,0.2126f,0.7152f,0.0722f,0,0.0193f,0.1192f,0.9505f,0,0,0,0,0);
