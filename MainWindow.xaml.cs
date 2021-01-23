@@ -11,6 +11,8 @@ using System.Threading;
 using System.Numerics;
 using Win = System.Windows;
 using System.Windows.Controls;
+using System.Globalization;
+using System.Text;
 
 namespace ColorMatch3D
 {
@@ -1194,7 +1196,11 @@ namespace ColorMatch3D
             //sfd.FileName = ;
             if (sfd.ShowDialog() == true)
             {
-                string luttext = "LUT_3D_SIZE "+ outputValueCount + "\n";
+                //string luttext = "LUT_3D_SIZE "+ outputValueCount + "\n";
+
+                int floatStringLength = ((float)Math.PI).ToString().Length;
+
+                StringBuilder sb = new StringBuilder("LUT_3D_SIZE " + outputValueCount + "\n", cube.Length* (floatStringLength+1));
 
                 for (int b = 0; b < outputValueCount; b++)
                 {
@@ -1208,12 +1214,13 @@ namespace ColorMatch3D
                             red = float.IsNaN(cube[r, g, b].color.X) ? 0 : cube[r, g, b].color.X/255;
                             green = float.IsNaN(cube[r, g, b].color.Y) ?0 : cube[r, g, b].color.Y/255;
                             blue = float.IsNaN(cube[r, g, b].color.Z) ? 0 : cube[r, g, b].color.Z/255;
-                            luttext += red + " " + green + " " + blue+"\n";
+                            //luttext += red.ToString(CultureInfo.InvariantCulture) + " " + green.ToString(CultureInfo.InvariantCulture) + " " + blue.ToString(CultureInfo.InvariantCulture) + "\n";
+                            sb.Append( red.ToString(CultureInfo.InvariantCulture) + " " + green.ToString(CultureInfo.InvariantCulture) + " " + blue.ToString(CultureInfo.InvariantCulture) + "\n");
                         }
                     }
                 }
 
-                File.WriteAllText(sfd.FileName, luttext);
+                File.WriteAllText(sfd.FileName, sb.ToString());
             }
         }
 
