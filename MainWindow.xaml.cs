@@ -61,6 +61,9 @@ namespace ColorMatch3D
                     case "boxBlur3dRadius_text":
                         postMatchSmoothing3DBoxBlurRadius = int.Parse(boxBlur3dRadius_text.Text);
                         break;
+                    case "boxBlur3dProtectLuminance_text":
+                        postMatchSmoothing3DBoxBlurLuminanceProtection = float.Parse(boxBlur3dProtectLuminance_text.Text);
+                        break;
                     case "boxBlur3dStrength_text":
                         postMatchSmoothing3DBoxBlurStrength = float.Parse(boxBlur3dStrength_text.Text);
                         break;
@@ -133,7 +136,7 @@ namespace ColorMatch3D
         InterpolationType interpolationType = InterpolationType.SINGLELINEAR;
 
         enum AggregateColorSpace { SRGB, SRGBLINEAR, XYZ, CIELAB, CIELCHAB };
-        AggregateColorSpace aggregateColorSpace = AggregateColorSpace.CIELCHAB;
+        AggregateColorSpace aggregateColorSpace = AggregateColorSpace.CIELAB;
 
         enum LowPassMatching { NONE, REFERENCETOTEST, TESTTOREFERENCE};
         LowPassMatching lowPassMatching = LowPassMatching.NONE;
@@ -153,6 +156,7 @@ namespace ColorMatch3D
         PostMatchSmoothing postMatchSmoothing = PostMatchSmoothing.NONE;
         int postMatchSmoothing3DBoxBlurRadius = 2;
         float postMatchSmoothing3DBoxBlurStrength = 1.0f;
+        float postMatchSmoothing3DBoxBlurLuminanceProtection = 1.0f;
 
 
         const int R = 0;
@@ -630,7 +634,7 @@ namespace ColorMatch3D
             float weight;
             float tmp1, tmp2, tmp3,
                 tmp1sq,tmp2sq,tmp3sq;
-            int redQuadrant, greenQuadrant, blueQuadrant;
+            int redOctant, greenOctant, blueOctant;
 
             float sqrtOf3 = (float)Math.Sqrt(3);
             AverageData tmpAverageData = new AverageData();
@@ -646,9 +650,9 @@ namespace ColorMatch3D
             // This loop is currently the bottleneck. Edit: Is it still?
             foreach (ColorPairData collectCubeLinearHere in collectCubeLinear)
             {
-                redQuadrant = collectCubeLinearHere.nearestQuadrantR;
-                greenQuadrant = collectCubeLinearHere.nearestQuadrantG;
-                blueQuadrant = collectCubeLinearHere.nearestQuadrantB;
+                redOctant = collectCubeLinearHere.nearestQuadrantR;
+                greenOctant = collectCubeLinearHere.nearestQuadrantG;
+                blueOctant = collectCubeLinearHere.nearestQuadrantB;
 
                 /*multiplyHelper.X = collectCubeLinearHere.RCORD;
                 multiplyHelper.Y = collectCubeLinearHere.GCORD;
@@ -661,25 +665,25 @@ namespace ColorMatch3D
                 count++;
                 for (rAround = -1; rAround <= 1; rAround++)
                 {
-                    if (cordNormalized.X > redQuadrant && rAround == -1) continue; //major speed improvement but slight quality degradation
-                    if (cordNormalized.X < redQuadrant  && rAround == 1) continue; //major speed improvement but slight quality degradation
-                    trueStepR = Math.Max(0, Math.Min(steps, redQuadrant + rAround));
+                    if (cordNormalized.X > redOctant && rAround == -1) continue; //major speed improvement but slight quality degradation
+                    if (cordNormalized.X < redOctant  && rAround == 1) continue; //major speed improvement but slight quality degradation
+                    trueStepR = Math.Max(0, Math.Min(steps, redOctant + rAround));
                     tmp1 = (trueStepR - cordNormalized.X);
                     tmp1sq = tmp1 * tmp1;
 
                     for (gAround = -1; gAround <= 1; gAround++)
                     {
-                        if (cordNormalized.Y >  greenQuadrant && gAround == -1) continue; //major speed improvement but slight quality degradation
-                        if (cordNormalized.Y < greenQuadrant  && gAround == 1) continue; //major speed improvement but slight quality degradation
-                        trueStepG = Math.Max(0, Math.Min(steps, greenQuadrant + gAround));
+                        if (cordNormalized.Y >  greenOctant && gAround == -1) continue; //major speed improvement but slight quality degradation
+                        if (cordNormalized.Y < greenOctant  && gAround == 1) continue; //major speed improvement but slight quality degradation
+                        trueStepG = Math.Max(0, Math.Min(steps, greenOctant + gAround));
                         tmp2 = (trueStepG - cordNormalized.Y);
                         tmp2sq = tmp2 * tmp2;
 
                         for (bAround = -1; bAround <= 1; bAround++)
                         {
-                            if (cordNormalized.Z >  blueQuadrant && bAround == -1) continue; //major speed improvement but slight quality degradation
-                            if (cordNormalized.Z < blueQuadrant && bAround == 1) continue; //major speed improvement but slight quality degradation
-                            trueStepB = Math.Max(0, Math.Min(steps, blueQuadrant + bAround));
+                            if (cordNormalized.Z >  blueOctant && bAround == -1) continue; //major speed improvement but slight quality degradation
+                            if (cordNormalized.Z < blueOctant && bAround == 1) continue; //major speed improvement but slight quality degradation
+                            trueStepB = Math.Max(0, Math.Min(steps, blueOctant + bAround));
                             tmp3 = (trueStepB - cordNormalized.Z);
                             tmp3sq = tmp3 * tmp3;
 
@@ -739,16 +743,16 @@ namespace ColorMatch3D
             // May seem slow from the code but actually only takes about 1 ms, it's ridiculously fast.
             AverageData averageHelper;
             Vector3 absCoord = new Vector3(0, 0, 0);
-            for (redQuadrant = 0; redQuadrant<outputValueCount; redQuadrant++)
+            for (redOctant = 0; redOctant<outputValueCount; redOctant++)
             {
-                absCoord.X = redQuadrant * stepSize;
-                for (greenQuadrant = 0; greenQuadrant < outputValueCount; greenQuadrant++)
+                absCoord.X = redOctant * stepSize;
+                for (greenOctant = 0; greenOctant < outputValueCount; greenOctant++)
                 {
-                    absCoord.Y = greenQuadrant * stepSize;
-                    for (blueQuadrant = 0; blueQuadrant < outputValueCount; blueQuadrant++)
+                    absCoord.Y = greenOctant * stepSize;
+                    for (blueOctant = 0; blueOctant < outputValueCount; blueOctant++)
                     {
-                        absCoord.Z = blueQuadrant * stepSize;
-                        tmpAverageData = tmpCube[redQuadrant, greenQuadrant, blueQuadrant];
+                        absCoord.Z = blueOctant * stepSize;
+                        tmpAverageData = tmpCube[redOctant, greenOctant, blueOctant];
 
                         if (tmpAverageData.divisor == 0)
                         {
@@ -760,13 +764,13 @@ namespace ColorMatch3D
                                 averageHelper = new AverageData();
                                 for (rAround = -1; rAround <= 1; rAround++)
                                 {
-                                    trueStepR = Math.Max(0, Math.Min(steps, redQuadrant + rAround));
+                                    trueStepR = Math.Max(0, Math.Min(steps, redOctant + rAround));
                                     for (gAround = -1; gAround <= 1; gAround++)
                                     {
-                                        trueStepG = Math.Max(0, Math.Min(steps, greenQuadrant + gAround));
+                                        trueStepG = Math.Max(0, Math.Min(steps, greenOctant + gAround));
                                         for (bAround = -1; bAround <= 1; bAround++)
                                         {
-                                            trueStepB = Math.Max(0, Math.Min(steps, blueQuadrant + bAround));
+                                            trueStepB = Math.Max(0, Math.Min(steps, blueOctant + bAround));
                                             averageHelper.color += tmpCube[trueStepR, trueStepG, trueStepB].color;
                                             averageHelper.divisor += tmpCube[trueStepR, trueStepG, trueStepB].divisor;
                                         }
@@ -780,10 +784,10 @@ namespace ColorMatch3D
                                     //tmpFloatColor.color = absCoord + (averageHelper.color / averageHelper.divisor); I had it like this and I guess it worked but the "back to absolute" seems wrong bc this is done later...
                                     tmpFloatColor.color = averageHelper.color / averageHelper.divisor;
                                 }
-                                cube[redQuadrant, greenQuadrant, blueQuadrant] = tmpFloatColor;
+                                cube[redOctant, greenOctant, blueOctant] = tmpFloatColor;
                             } else
                             {
-                                cube[redQuadrant, greenQuadrant, blueQuadrant].color = NaNColor;
+                                cube[redOctant, greenOctant, blueOctant].color = NaNColor;
                             }
                         }
                         else
@@ -802,7 +806,7 @@ namespace ColorMatch3D
 
                                 cube[redQuadrant, greenQuadrant, blueQuadrant].color = absCoord + tmpAverageData.color / tmpAverageData.divisor;
                             }*/ // This whole thing comes later now (transfer to absolute)
-                            cube[redQuadrant, greenQuadrant, blueQuadrant].color = tmpAverageData.color / tmpAverageData.divisor;
+                            cube[redOctant, greenOctant, blueOctant].color = tmpAverageData.color / tmpAverageData.divisor;
                         }
 
                     }
@@ -1009,15 +1013,15 @@ namespace ColorMatch3D
                 int boxBlurRadius = postMatchSmoothing3DBoxBlurRadius; // just to make it shorter to work with
 
                 Vector3 tmpColor = new Vector3();
-                for (redQuadrant = 0; redQuadrant < outputValueCount; redQuadrant++)
+                for (redOctant = 0; redOctant < outputValueCount; redOctant++)
                 {
-                    absCoord.X = redQuadrant * stepSize;
-                    for (greenQuadrant = 0; greenQuadrant < outputValueCount; greenQuadrant++)
+                    //absCoord.X = redQuadrant * stepSize;
+                    for (greenOctant = 0; greenOctant < outputValueCount; greenOctant++)
                     {
-                        absCoord.Y = greenQuadrant * stepSize;
-                        for (blueQuadrant = 0; blueQuadrant < outputValueCount; blueQuadrant++)
+                        //absCoord.Y = greenQuadrant * stepSize;
+                        for (blueOctant = 0; blueOctant < outputValueCount; blueOctant++)
                         {
-                            absCoord.Z = blueQuadrant * stepSize;
+                            //absCoord.Z = blueQuadrant * stepSize;
 
                             averageHelper = new AverageData();
 
@@ -1026,20 +1030,86 @@ namespace ColorMatch3D
 
                             for (rAround = -boxBlurRadius; rAround <= boxBlurRadius; rAround++)
                             {
-                                trueStepR = Math.Max(0, Math.Min(steps, redQuadrant + rAround));
+                                trueStepR = Math.Max(0, Math.Min(steps, redOctant + rAround));
                                 for (gAround = -boxBlurRadius; gAround <= boxBlurRadius; gAround++)
                                 {
-                                    trueStepG = Math.Max(0, Math.Min(steps, greenQuadrant + gAround));
+                                    trueStepG = Math.Max(0, Math.Min(steps, greenOctant + gAround));
                                     for (bAround = -boxBlurRadius; bAround <= boxBlurRadius; bAround++)
                                     {
-                                        trueStepB = Math.Max(0, Math.Min(steps, blueQuadrant + bAround));
+                                        trueStepB = Math.Max(0, Math.Min(steps, blueOctant + bAround));
                                         averageHelper.color += cube[trueStepR, trueStepG, trueStepB].color;
                                         averageHelper.divisor += 1;
                                     }
                                 }
                             }
 
-                            smoothedCube[redQuadrant, greenQuadrant, blueQuadrant].color = (1.0f- postMatchSmoothing3DBoxBlurStrength) * cube[redQuadrant, greenQuadrant, blueQuadrant].color + postMatchSmoothing3DBoxBlurStrength * (averageHelper.color / averageHelper.divisor);
+                            smoothedCube[redOctant, greenOctant, blueOctant].color = (1.0f- postMatchSmoothing3DBoxBlurStrength) * cube[redOctant, greenOctant, blueOctant].color + postMatchSmoothing3DBoxBlurStrength * (averageHelper.color / averageHelper.divisor);
+                        }
+                    }
+                }
+
+                // Protect avg. luminance
+                //
+                // NOTE: Currently this does not actually compute luminance but just tries to maintain an average of all 3 coordinates. Make a new option to distinguish between that and luminance.
+                if(postMatchSmoothing3DBoxBlurLuminanceProtection > 0)
+                {
+                    AverageData[] averageLuminancesOfLayerPreSmoothing = new AverageData[outputValueCount];
+                    AverageData[] averageLuminancesOfLayerPostSmoothing = new AverageData[outputValueCount];
+
+                    int currentLayerTmp;
+                    int currentLayer;
+
+                    // Analyze average luminances
+                    for (redOctant = 0; redOctant < outputValueCount; redOctant++)
+                    {
+                        //absCoord.X = redQuadrant * stepSize;
+                        for (greenOctant = 0; greenOctant < outputValueCount; greenOctant++)
+                        {
+                            //absCoord.Y = greenQuadrant * stepSize;
+                            currentLayerTmp = Math.Max(redOctant, greenOctant);
+                            for (blueOctant = 0; blueOctant < outputValueCount; blueOctant++)
+                            {
+                                //absCoord.Z = blueQuadrant * stepSize;
+                                // "Layer" we mean like a "ring" around 0. Except not really a ring, but a cube layer. In avg. luminance protection, we try to maintain the same average luminance in each cube layer as in the unsmoothed cube
+                                // It may not be technically correct since luminance isn't equally affected by R,G and B, but it's a simplified approach that hopefully works decently.
+                                currentLayer = Math.Max(currentLayerTmp, blueOctant);
+
+                                averageLuminancesOfLayerPreSmoothing[currentLayer].color += cube[redOctant,greenOctant,blueOctant].color;
+                                averageLuminancesOfLayerPreSmoothing[currentLayer].divisor += 1;
+                                averageLuminancesOfLayerPostSmoothing[currentLayer].color += smoothedCube[redOctant,greenOctant,blueOctant].color;
+                                averageLuminancesOfLayerPostSmoothing[currentLayer].divisor += 1;
+                            }
+                        }
+                    }
+
+                    Vector3[] differences = new Vector3[outputValueCount];
+
+                    // Compute differences in average luminances.
+                    for(int i = 0; i < outputValueCount; i++)
+                    {
+                        averageLuminancesOfLayerPreSmoothing[i].color /= averageLuminancesOfLayerPreSmoothing[i].divisor;
+                        averageLuminancesOfLayerPostSmoothing[i].color /= averageLuminancesOfLayerPostSmoothing[i].divisor;
+
+                        differences[i] = (averageLuminancesOfLayerPostSmoothing[i].color - averageLuminancesOfLayerPreSmoothing[i].color);
+                    }
+
+                    // Apply compensation
+                    for (redOctant = 0; redOctant < outputValueCount; redOctant++)
+                    {
+                        //absCoord.X = redQuadrant * stepSize;
+                        for (greenOctant = 0; greenOctant < outputValueCount; greenOctant++)
+                        {
+                            //absCoord.Y = greenQuadrant * stepSize;
+                            currentLayerTmp = Math.Max(redOctant, greenOctant);
+                            for (blueOctant = 0; blueOctant < outputValueCount; blueOctant++)
+                            {
+                                //absCoord.Z = blueQuadrant * stepSize;
+                                // "Layer" we mean like a "ring" around 0. Except not really a ring, but a cube layer. In avg. luminance protection, we try to maintain the same average luminance in each cube layer as in the unsmoothed cube
+                                // It may not be technically correct since luminance isn't equally affected by R,G and B, but it's a simplified approach that hopefully works decently.
+                                currentLayer = Math.Max(currentLayerTmp, blueOctant);
+
+                                smoothedCube[redOctant, greenOctant, blueOctant].color = ((smoothedCube[redOctant, greenOctant, blueOctant].color-differences[currentLayer]) * postMatchSmoothing3DBoxBlurLuminanceProtection)+ (smoothedCube[redOctant, greenOctant, blueOctant].color * (1-postMatchSmoothing3DBoxBlurLuminanceProtection));
+                            }
                         }
                     }
                 }
@@ -1055,15 +1125,15 @@ namespace ColorMatch3D
             if (aggregateWhat == AggregateVariable.VECTOR || aggregateColorSpace != AggregateColorSpace.SRGB)
             {
                 Vector3 tmpColor = new Vector3();
-                for (redQuadrant = 0; redQuadrant < outputValueCount; redQuadrant++)
+                for (redOctant = 0; redOctant < outputValueCount; redOctant++)
                 {
-                    absCoord.X = redQuadrant * stepSize;
-                    for (greenQuadrant = 0; greenQuadrant < outputValueCount; greenQuadrant++)
+                    absCoord.X = redOctant * stepSize;
+                    for (greenOctant = 0; greenOctant < outputValueCount; greenOctant++)
                     {
-                        absCoord.Y = greenQuadrant * stepSize;
-                        for (blueQuadrant = 0; blueQuadrant < outputValueCount; blueQuadrant++)
+                        absCoord.Y = greenOctant * stepSize;
+                        for (blueOctant = 0; blueOctant < outputValueCount; blueOctant++)
                         {
-                            absCoord.Z = blueQuadrant * stepSize;
+                            absCoord.Z = blueOctant * stepSize;
                             // TODO Find a way to not clip the result values with ColorMine.
                             if(aggregateColorSpace == AggregateColorSpace.CIELAB)
                             {
@@ -1078,7 +1148,7 @@ namespace ColorMatch3D
                                 */
                                 tmpColor = Helpers.sRGBToCIELab(absCoord);
                                 
-                                tmpColor = tmpColor + cube[redQuadrant, greenQuadrant, blueQuadrant].color;
+                                tmpColor = tmpColor + cube[redOctant, greenOctant, blueOctant].color;
                                 /*
                                 tmpLab.L = tmpColor.X;
                                 tmpLab.A = tmpColor.Y;
@@ -1092,7 +1162,7 @@ namespace ColorMatch3D
 
                                 tmpColor = Helpers.XYZtoRGB(Helpers.CIELabToXYZ(tmpColor));
 
-                                cube[redQuadrant, greenQuadrant, blueQuadrant].color = tmpColor;
+                                cube[redOctant, greenOctant, blueOctant].color = tmpColor;
 
                             }
                             else if(aggregateColorSpace == AggregateColorSpace.CIELCHAB)
@@ -1108,7 +1178,7 @@ namespace ColorMatch3D
                                 */
                                 tmpColor = Helpers.sRGBToCIELChab(absCoord);
                                 
-                                tmpColor = tmpColor + cube[redQuadrant, greenQuadrant, blueQuadrant].color;
+                                tmpColor = tmpColor + cube[redOctant, greenOctant, blueOctant].color;
                                 /*
                                 tmpLab.L = tmpColor.X;
                                 tmpLab.A = tmpColor.Y;
@@ -1122,13 +1192,13 @@ namespace ColorMatch3D
 
                                 tmpColor = Helpers.CIELChabTosRGB(tmpColor);
 
-                                cube[redQuadrant, greenQuadrant, blueQuadrant].color = tmpColor;
+                                cube[redOctant, greenOctant, blueOctant].color = tmpColor;
 
                             }
                             else if (aggregateColorSpace == AggregateColorSpace.SRGB)
                             {
 
-                                cube[redQuadrant, greenQuadrant, blueQuadrant].color = absCoord + cube[redQuadrant, greenQuadrant, blueQuadrant].color;
+                                cube[redOctant, greenOctant, blueOctant].color = absCoord + cube[redOctant, greenOctant, blueOctant].color;
                             }
 
                                 

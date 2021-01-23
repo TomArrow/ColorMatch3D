@@ -128,8 +128,8 @@
                     <RadioButton x:Name="useSRGBAggrSpace_radio" Checked="AggrSpace_radio_Checked" >sRGB</RadioButton>
                     <RadioButton x:Name="useSRGBLinearAggrSpace_radio" Checked="AggrSpace_radio_Checked" IsEnabled="False" >sRGB Linear</RadioButton>
                     <RadioButton x:Name="useXYZAggrSpace_radio" Checked="AggrSpace_radio_Checked"  IsEnabled="False" >XYZ</RadioButton>
-                    <RadioButton x:Name="useCIELabAggrSpace_radio" Checked="AggrSpace_radio_Checked" IsChecked="False">CIELab</RadioButton>
-                    <RadioButton x:Name="useCIELChabAggrSpace_radio" Checked="AggrSpace_radio_Checked" IsChecked="True">
+                    <RadioButton x:Name="useCIELabAggrSpace_radio" Checked="AggrSpace_radio_Checked" IsChecked="True">CIELab</RadioButton>
+                    <RadioButton x:Name="useCIELChabAggrSpace_radio" Checked="AggrSpace_radio_Checked" IsChecked="False">
                         <TextBlock>CIELCh<TextBlock Text="ab">
                                 <TextBlock.RenderTransform>
                                     <!-- Typography.Variants="Superscript" didn't work -->
@@ -175,7 +175,11 @@
                                     <Label>Blur strength (0.0-1.0)</Label>
                                     <TextBox MinWidth="30" x:Name="boxBlur3dStrength_text" TextChanged="boxBlur3d_text_TextChanged">1.0</TextBox>
                                 </WrapPanel>
-                                <CheckBox IsEnabled="False">Protect avg. luminance level</CheckBox>
+
+                                <WrapPanel>
+                                    <Label FontSize="10">Protect luminance (0.0-1.0)</Label>
+                                    <TextBox MinWidth="30" x:Name="boxBlur3dProtectLuminance_text" TextChanged="boxBlur3d_text_TextChanged">1.0</TextBox>
+                                </WrapPanel>
                                 <CheckBox IsEnabled="False">Protect blacks</CheckBox>
                                 <CheckBox IsEnabled="False">Protect whites</CheckBox>
                                 <CheckBox IsEnabled="False">Protect neutrals</CheckBox>
