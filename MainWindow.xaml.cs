@@ -55,6 +55,20 @@ namespace ColorMatch3D
                         lowPass1DRegradeSmoothingRadius = int.Parse(lowPassHistoMatchSmoothRadius_Text.Text);
                         break;
 
+
+                    case "boxBlur3dRadius_text":
+                        postMatchSmoothing3DBoxBlurRadius = int.Parse(boxBlur3dRadius_text.Text);
+                        break;
+                    case "boxBlur3dStrength_text":
+                        postMatchSmoothing3DBoxBlurStrength = float.Parse(boxBlur3dStrength_text.Text);
+                        break;
+                    case "boxBlur3dDisabled_radio":
+                        postMatchSmoothing = PostMatchSmoothing.NONE;
+                        break;
+                    case "boxBlur3dActive_radio":
+                        postMatchSmoothing = PostMatchSmoothing.BOXBLUR3D;
+                        break;
+
                     case "lowPassHistoMatchYes_radio":
                         lowPass1DRegrade = LowPass1DRegrade.HISTOGRAM;
                         break;
@@ -130,6 +144,13 @@ namespace ColorMatch3D
         float lowPass1DRegradeSmoothingIntensity = 1f;
         int lowPass1DRegradeSmoothingRadius = 20;
         int lowPass1DRegradePercentileSubdivisions = 100;
+
+
+
+        enum PostMatchSmoothing { NONE, BOXBLUR3D};
+        PostMatchSmoothing postMatchSmoothing = PostMatchSmoothing.NONE;
+        int postMatchSmoothing3DBoxBlurRadius = 2;
+        float postMatchSmoothing3DBoxBlurStrength = 1.0f;
 
 
         const int R = 0;
@@ -620,7 +641,7 @@ namespace ColorMatch3D
 
             // compiler explorer. check
 
-            // This loop is currently the bottleneck.
+            // This loop is currently the bottleneck. Edit: Is it still?
             foreach (ColorPairData collectCubeLinearHere in collectCubeLinear)
             {
                 redQuadrant = collectCubeLinearHere.nearestQuadrantR;
@@ -754,7 +775,8 @@ namespace ColorMatch3D
                                     tmpFloatColor.color = averageHelper.color / averageHelper.divisor;
                                 } else if(aggregateWhat == AggregateVariable.VECTOR)
                                 {
-                                    tmpFloatColor.color = absCoord + (averageHelper.color / averageHelper.divisor);
+                                    //tmpFloatColor.color = absCoord + (averageHelper.color / averageHelper.divisor); I had it like this and I guess it worked but the "back to absolute" seems wrong bc this is done later...
+                                    tmpFloatColor.color = averageHelper.color / averageHelper.divisor;
                                 }
                                 cube[redQuadrant, greenQuadrant, blueQuadrant] = tmpFloatColor;
                             } else
@@ -975,6 +997,58 @@ namespace ColorMatch3D
 
             durations.Add(watch.ElapsedMilliseconds);
 
+
+
+            // Smoothing
+            if (postMatchSmoothing == PostMatchSmoothing.BOXBLUR3D)
+            {
+                FloatColor[,,] smoothedCube = new FloatColor[outputValueCount, outputValueCount, outputValueCount];
+
+                int boxBlurRadius = postMatchSmoothing3DBoxBlurRadius; // just to make it shorter to work with
+
+                Vector3 tmpColor = new Vector3();
+                for (redQuadrant = 0; redQuadrant < outputValueCount; redQuadrant++)
+                {
+                    absCoord.X = redQuadrant * stepSize;
+                    for (greenQuadrant = 0; greenQuadrant < outputValueCount; greenQuadrant++)
+                    {
+                        absCoord.Y = greenQuadrant * stepSize;
+                        for (blueQuadrant = 0; blueQuadrant < outputValueCount; blueQuadrant++)
+                        {
+                            absCoord.Z = blueQuadrant * stepSize;
+
+                            averageHelper = new AverageData();
+
+                            //averageHelper.color += cube[redQuadrant, greenQuadrant, blueQuadrant].color;
+                            //averageHelper.divisor += 1;
+
+                            for (rAround = -boxBlurRadius; rAround <= boxBlurRadius; rAround++)
+                            {
+                                trueStepR = Math.Max(0, Math.Min(steps, redQuadrant + rAround));
+                                for (gAround = -boxBlurRadius; gAround <= boxBlurRadius; gAround++)
+                                {
+                                    trueStepG = Math.Max(0, Math.Min(steps, greenQuadrant + gAround));
+                                    for (bAround = -boxBlurRadius; bAround <= boxBlurRadius; bAround++)
+                                    {
+                                        trueStepB = Math.Max(0, Math.Min(steps, blueQuadrant + bAround));
+                                        averageHelper.color += cube[trueStepR, trueStepG, trueStepB].color;
+                                        averageHelper.divisor += 1;
+                                    }
+                                }
+                            }
+
+                            smoothedCube[redQuadrant, greenQuadrant, blueQuadrant].color = (1.0f- postMatchSmoothing3DBoxBlurStrength) * cube[redQuadrant, greenQuadrant, blueQuadrant].color + postMatchSmoothing3DBoxBlurStrength * (averageHelper.color / averageHelper.divisor);
+                        }
+                    }
+                }
+
+                cube = smoothedCube;
+            }
+
+
+            durations.Add(watch.ElapsedMilliseconds);
+
+
             // Convert Vector back to absolute
             if (aggregateWhat == AggregateVariable.VECTOR || aggregateColorSpace != AggregateColorSpace.SRGB)
             {
@@ -1172,6 +1246,19 @@ namespace ColorMatch3D
         {
             win.FrameworkElement element = e.Source as win.FrameworkElement;
             readGUISettings(element.Name);
+        }
+
+        private void boxBlur3d_text_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            win.FrameworkElement element = e.Source as win.FrameworkElement;
+            readGUISettings(element.Name);
+        }
+
+        private void postMatchSmoothing_radio_Checked(object sender, win.RoutedEventArgs e)
+        {
+            win.FrameworkElement element = e.Source as win.FrameworkElement;
+            readGUISettings(element.Name);
+
         }
 
         /*private void updateIter()

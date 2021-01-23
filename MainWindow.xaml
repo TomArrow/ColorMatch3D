@@ -161,24 +161,28 @@
                 <GroupBox Header="Post match smoothing">
                     <StackPanel>
                         <WrapPanel>
-                            <RadioButton>None (default)</RadioButton>
-                            <RadioButton x:Name="boxAlur3dActive_radio">3D box blur</RadioButton>
+                            <RadioButton x:Name="boxBlur3dDisabled_radio" IsChecked="True" Checked="postMatchSmoothing_radio_Checked">None (default)</RadioButton>
+                            <RadioButton x:Name="boxBlur3dActive_radio" Checked="postMatchSmoothing_radio_Checked">3D box blur</RadioButton>
                         </WrapPanel>
-                        <StackPanel IsEnabled="{Binding ElementName=boxAlur3dActive_radio, Path=IsChecked}">
+                        <GroupBox Header="3d box blur smoothing settings" IsEnabled="{Binding ElementName=boxBlur3dActive_radio, Path=IsChecked}">
+                            <StackPanel>
 
-                            <WrapPanel>
-                                <Label>3D box blur radius</Label>
-                                <TextBox MinWidth="30">5</TextBox>
-                            </WrapPanel>
-                            <WrapPanel>
-                                <Label>3D box blur strength (0.0-1.0)</Label>
-                                <TextBox MinWidth="30">1.0</TextBox>
-                            </WrapPanel>
-                            <CheckBox>Protect blacks</CheckBox>
-                            <CheckBox>Protect whites</CheckBox>
-                            <CheckBox>Protect neutrals</CheckBox>
-                            <!--TODO mode to work on only the color planes in Lab mode for example? Stuff like that.-->
-                        </StackPanel>
+                                <WrapPanel>
+                                    <Label>Blur radius</Label>
+                                    <TextBox MinWidth="30" x:Name="boxBlur3dRadius_text" TextChanged="boxBlur3d_text_TextChanged">2</TextBox>
+                                </WrapPanel>
+                                <WrapPanel>
+                                    <Label>Blur strength (0.0-1.0)</Label>
+                                    <TextBox MinWidth="30" x:Name="boxBlur3dStrength_text" TextChanged="boxBlur3d_text_TextChanged">1.0</TextBox>
+                                </WrapPanel>
+                                <CheckBox IsEnabled="False">Protect avg. luminance level</CheckBox>
+                                <CheckBox IsEnabled="False">Protect blacks</CheckBox>
+                                <CheckBox IsEnabled="False">Protect whites</CheckBox>
+                                <CheckBox IsEnabled="False">Protect neutrals</CheckBox>
+                                <!--TODO mode to work on only the color planes in Lab mode for example? Stuff like that.-->
+                            </StackPanel>
+                        </GroupBox>
+                        
                     </StackPanel>
                 </GroupBox>
                 
