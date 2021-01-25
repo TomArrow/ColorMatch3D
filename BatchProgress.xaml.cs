@@ -24,12 +24,12 @@ namespace ColorMatch3D
 
         
 
-        public ObservableCollection<ProgressItem> ProgressStrings
+        public FullyObservableCollection<ProgressItem> ProgressStrings
         {
             get { return progressStrings; }
         }
 
-        public ObservableCollection<ProgressItem> progressStrings = new ObservableCollection<ProgressItem>();
+        public FullyObservableCollection<ProgressItem> progressStrings = new FullyObservableCollection<ProgressItem>();
         public BatchProgress()
         {
             InitializeComponent();
@@ -76,7 +76,7 @@ namespace ColorMatch3D
         }
     }
 
-    public class ProgressItem
+    public class ProgressItem : INotifyPropertyChanged
     {
         public int id;
         public string ProgressText
