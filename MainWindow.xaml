@@ -75,6 +75,25 @@
                         </WrapPanel>
                         <Button Background="Red" Foreground="White" FontWeight="Black" Click="DoColorMatch_Click">Run ColorMatch</Button>
                         <TextBlock TextWrapping="Wrap">Note: Loaded images must be 8-bit and in sRGB.</TextBlock>
+
+                        <GroupBox Header="Batch processing">
+                            <StackPanel>
+
+                                <Button x:Name="btnSelectTestFolder" Click="btnSelectTestFolder_Click">Select test folder...</Button>
+                                <Button x:Name="btnSelectReferenceFolder" Click="btnSelectReferenceFolder_Click">Select reference folder...</Button>
+                                <Button x:Name="btnSelectOutputFolder" Click="btnSelectOutputFolder_Click">Select output folder...</Button>
+
+                                <WrapPanel>
+                                    <Label>Test suffix</Label>
+                                    <TextBox MinWidth="50" x:Name="batchTestSuffix_text" TextChanged="batch_text_TextChanged">-test</TextBox>
+                                </WrapPanel>
+                                <WrapPanel>
+                                    <Label>Reference suffix</Label>
+                                    <TextBox MinWidth="50" x:Name="batchReferenceSuffix_text" TextChanged="batch_text_TextChanged">-ref</TextBox>
+                                </WrapPanel>
+                                <Button x:Name="btnDoColorMatchBatch" Background="Blue" Foreground="White" FontWeight="Black" Click="DoColorMatchBatch_Click" IsEnabled="False">Batch Process</Button>
+                            </StackPanel>
+                        </GroupBox>
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>

@@ -44,6 +44,14 @@ namespace ColorMatch3D
 
                 switch (nameOfElement)
                 {
+                    case "batchTestSuffix_text":
+                        batchTestSuffix = batchTestSuffix_text.Text.Trim();
+                        break;
+                    case "batchReferenceSuffix_text":
+                        batchReferenceSuffix = batchReferenceSuffix_text.Text.Trim();
+                        break;
+
+
                     case "lowpassEqualizeBlurRadius_Text":
                         lowPassEqualizeBlurRadius = float.Parse(lowpassEqualizeBlurRadius_Text.Text);
                         break;
@@ -129,6 +137,16 @@ namespace ColorMatch3D
             //Win.MessageBox.Show(aggregateWhat.ToString());
         }
 
+
+        string batchTestSuffix = "-test";
+        string batchReferenceSuffix = "-ref";
+        string batchTestFolder = ".";
+        string batchReferenceFolder = ".";
+        string batchOutputFolder = ".";
+        bool batchTestFolderIsset = false, batchReferenceFolderIsset = false, batchOutputFolderIsset = false;
+        bool batchTestFolderSoftIsset = false, batchReferenceFolderSoftIsset = false, batchOutputFolderSoftIsset = false;
+
+
         enum AggregateVariable { ABSOLUTE, VECTOR};
         AggregateVariable aggregateWhat = AggregateVariable.VECTOR;
 
@@ -149,7 +167,6 @@ namespace ColorMatch3D
         float lowPass1DRegradeSmoothingIntensity = 1f;
         int lowPass1DRegradeSmoothingRadius = 20;
         int lowPass1DRegradePercentileSubdivisions = 100;
-
 
 
         enum PostMatchSmoothing { NONE, BOXBLUR3D};
@@ -199,11 +216,52 @@ namespace ColorMatch3D
             DoColorMatch();
         }
 
+        private void DoColorMatchBatch_Click(object sender, win.RoutedEventArgs e)
+        {
+            DoColorMatchBatch();
+        }
+
         private Task ColorMatchTask;
         private FloatColor[,,] cube = null;
         
         // ColorMatch caller
         private async void DoColorMatch()
+        {
+
+            if (testImage == null || referenceImage == null)
+            {
+                setStatus("Need both a test image and a reference image to match colors.",true);
+                return;
+            }
+
+
+            try
+            {
+                // Get variables/config
+
+            }
+            catch (Exception blah)
+            {
+
+                setStatus("Make sure you only entered valid numbers.",true);
+                return;
+            }
+
+            var progress = new Progress<MatchReport>(update =>
+            {
+                setStatus(update.message, update.error);
+                if(update.cube != null)
+                {
+                    cube = update.cube;
+                }
+
+            });
+            ColorMatchTask = Task.Run(() => DoColorMatch_Worker(progress,testImage,referenceImage,aggregateWhat));
+            setStatus("Started...");
+        }
+
+
+        private async void DoColorMatchBatch()
         {
 
             if (testImage == null || referenceImage == null)
@@ -1336,6 +1394,93 @@ namespace ColorMatch3D
             win.FrameworkElement element = e.Source as win.FrameworkElement;
             readGUISettings(element.Name);
 
+        }
+
+        private void batch_text_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            win.FrameworkElement element = e.Source as win.FrameworkElement;
+            readGUISettings(element.Name);
+        }
+
+        private void btnSelectTestFolder_Click(object sender, win.RoutedEventArgs e)
+        {
+            var fbd = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog();
+
+            bool? result = fbd.ShowDialog();
+
+            if (result == true && !string.IsNullOrWhiteSpace(fbd.SelectedPath) && Directory.Exists(fbd.SelectedPath))
+            {
+                batchTestFolder = fbd.SelectedPath;
+                if (!batchReferenceFolderIsset)
+                {
+                    batchReferenceFolder = fbd.SelectedPath;
+                    batchReferenceFolderSoftIsset = true;
+                    btnSelectReferenceFolder.Background = media.Brushes.LightGreen;
+                }
+                if (!batchOutputFolderIsset)
+                {
+                    batchOutputFolder = fbd.SelectedPath;
+                    batchOutputFolderSoftIsset = true;
+                    btnSelectOutputFolder.Background = media.Brushes.LightGreen;
+                }
+                btnSelectTestFolder.Background = media.Brushes.Green;
+                batchTestFolderIsset = true;
+                btnDoColorMatchBatch.IsEnabled = true;
+            }
+        }
+        private void btnSelectReferenceFolder_Click(object sender, win.RoutedEventArgs e)
+        {
+            var fbd = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog();
+
+            bool? result = fbd.ShowDialog();
+
+            if (result == true && !string.IsNullOrWhiteSpace(fbd.SelectedPath) && Directory.Exists(fbd.SelectedPath))
+            {
+                batchReferenceFolder = fbd.SelectedPath;
+
+                if (!batchTestFolderIsset)
+                {
+                    batchTestFolder = fbd.SelectedPath;
+                    batchTestFolderSoftIsset = true; 
+                    btnSelectTestFolder.Background = media.Brushes.LightGreen;
+                }
+                if (!batchOutputFolderIsset && !batchOutputFolderSoftIsset)
+                {
+                    batchOutputFolder = fbd.SelectedPath;
+                    batchOutputFolderSoftIsset = true;
+                    btnSelectOutputFolder.Background = media.Brushes.LightGreen;
+                }
+                btnSelectReferenceFolder.Background = media.Brushes.Green;
+                batchReferenceFolderIsset = true;
+                btnDoColorMatchBatch.IsEnabled = true;
+            }
+        }
+
+        private void btnSelectOutputFolder_Click(object sender, win.RoutedEventArgs e)
+        {
+            var fbd = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog();
+
+            bool? result = fbd.ShowDialog();
+
+            if (result == true && !string.IsNullOrWhiteSpace(fbd.SelectedPath) && Directory.Exists(fbd.SelectedPath))
+            {
+                batchOutputFolder = fbd.SelectedPath;
+                if (!batchTestFolderIsset)
+                {
+                    batchTestFolder = fbd.SelectedPath;
+                    batchTestFolderSoftIsset = true;
+                    btnSelectTestFolder.Background = media.Brushes.LightGreen;
+                }
+                if (!batchReferenceFolderIsset)
+                {
+                    batchReferenceFolder = fbd.SelectedPath;
+                    batchReferenceFolderSoftIsset = true;
+                    btnSelectReferenceFolder.Background = media.Brushes.LightGreen;
+                }
+                btnSelectOutputFolder.Background = media.Brushes.Green;
+                batchOutputFolderIsset = true;
+                btnDoColorMatchBatch.IsEnabled = true;
+            }
         }
 
         /*private void updateIter()
