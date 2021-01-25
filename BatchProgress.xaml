@@ -1,0 +1,44 @@
+﻿<Window x:Class="ColorMatch3D.BatchProgress"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ColorMatch3D"
+        mc:Ignorable="d"
+        Title="Batch Progress" Height="450" Width="800">
+    <StackPanel>
+
+        <ListView x:Name="listView" ItemsSource="{Binding Path=ProgressStrings}">
+
+            <ListView.View>
+
+                <GridView AllowsColumnReorder="true">
+
+                    <GridViewColumn DisplayMemberBinding=
+                          "{Binding Path=Id}" 
+                      Header="Item number" Width="100"/>
+
+                    <GridViewColumn DisplayMemberBinding=
+                          "{Binding Path=ProgressText}" 
+                      Width="650">
+                        <GridViewColumnHeader>Progress
+                            <!--<GridViewColumnHeader.ContextMenu>
+                                <ContextMenu  MenuItem.Click="LastNameCM_Click"  
+                                        Name="LastNameCM">
+                                    <MenuItem Header="Ascending" />
+                                    <MenuItem Header="Descending" />
+                                </ContextMenu>
+                            </GridViewColumnHeader.ContextMenu>-->
+                        </GridViewColumnHeader>
+                    </GridViewColumn>
+
+                    <!--<GridViewColumn DisplayMemberBinding=
+                          "{Binding Path=EmployeeNumber}" 
+                      Header="Employee No." Width="100"/>-->
+                </GridView>
+
+            </ListView.View>
+        </ListView>
+
+    </StackPanel>
+</Window>

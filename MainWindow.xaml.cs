@@ -32,6 +32,8 @@ namespace ColorMatch3D
         public MainWindow()
         {
             InitializeComponent();
+
+
             //win.Forms.MessageBox.Show(Helpers.CIELChabTosRGB((Helpers.sRGBToCIELChab(new Vector3 { X=128, Y=128, Z=128 }))).ToString());
             //Status_txt.Text = "SIMD: " + Vector.IsHardwareAccelerated.ToString();
         }
@@ -222,7 +224,7 @@ namespace ColorMatch3D
         }
 
         private Task ColorMatchTask;
-        private FloatColor[,,] cube = null;
+        private FloatColor[,,] globalCube = null;
         
         // ColorMatch caller
         private async void DoColorMatch()
@@ -252,7 +254,7 @@ namespace ColorMatch3D
                 setStatus(update.message, update.error);
                 if(update.cube != null)
                 {
-                    cube = update.cube;
+                    globalCube = update.cube;
                 }
 
             });
@@ -261,38 +263,108 @@ namespace ColorMatch3D
         }
 
 
+        struct BatchTriple
+        {
+            public string testFile;
+            public string refFile;
+            public string LUTFile;
+        }
+
         private async void DoColorMatchBatch()
         {
 
-            if (testImage == null || referenceImage == null)
+
+            string[] testfiles_unfiltered = Directory.GetFiles(batchTestFolder);
+            string[] reffiles_unfiltered = Directory.GetFiles(batchReferenceFolder);
+
+            List<BatchTriple> batchTriples = new List<BatchTriple>();
+            int set_index = 0;
+
+            BatchTriple tmpBatchTriple = new BatchTriple();
+
+
+            // Find image pairs
+            for(int k = 0; k < testfiles_unfiltered.Length; k++)
             {
-                setStatus("Need both a test image and a reference image to match colors.",true);
-                return;
-            }
+                string baseFileName = Path.GetFileName(testfiles_unfiltered[k]);
+                string fullFileName = Path.GetFullPath(testfiles_unfiltered[k]);
 
+                string folder = Path.GetDirectoryName(fullFileName);
+                string baseFileNameNoExt = Path.GetFileNameWithoutExtension(fullFileName);
+                string extension = Path.GetExtension(fullFileName);
 
-            try
-            {
-                // Get variables/config
+                bool is_testfile = baseFileNameNoExt.EndsWith(batchTestSuffix);
 
-            }
-            catch (Exception blah)
-            {
-
-                setStatus("Make sure you only entered valid numbers.",true);
-                return;
-            }
-
-            var progress = new Progress<MatchReport>(update =>
-            {
-                setStatus(update.message, update.error);
-                if(update.cube != null)
+                if (is_testfile)
                 {
-                    cube = update.cube;
+                    string corresponding_basename = baseFileNameNoExt.Substring(0,baseFileNameNoExt.Length-batchTestSuffix.Length) + batchReferenceSuffix;
+
+                    // Give meaningful name to cube file
+                    string target_cubename = baseFileNameNoExt.Substring(0, baseFileNameNoExt.Length - batchTestSuffix.Length) +
+                        (lowPassMatching == LowPassMatching.REFERENCETOTEST ?"-lowpassreftotest("+lowPassEqualizeBlurRadius+"px"+
+                        (lowPass1DRegrade == LowPass1DRegrade.HISTOGRAM ? ",histogram1Dregrade("+lowPass1DRegradePercentileSubdivisions+"subdiv,"+lowPass1DRegradeSmoothingRadius+"smthrad,"+lowPass1DRegradeSmoothingIntensity+"smth)" : "") +
+                            ")" : "")+
+                        "-"+aggregateColorSpace.ToString()+
+                        "-" + aggregateWhat.ToString()+
+                        "-" + interpolationType.ToString()+
+                        (postMatchSmoothing == PostMatchSmoothing.BOXBLUR3D ? "-postsmoothboxblur3d("+postMatchSmoothing3DBoxBlurRadius+"u,"+postMatchSmoothing3DBoxBlurStrength+"str,"+postMatchSmoothing3DBoxBlurLuminanceProtection+"lumprt)" : "") + 
+                        ".cube";
+                    target_cubename = batchOutputFolder.Trim(new char[] {  "/"[0] }) + Path.DirectorySeparatorChar + target_cubename;
+
+                    for (int l = 0; l < reffiles_unfiltered.Length; l++)
+                    {
+                        string baseFileName_ref = Path.GetFileName(reffiles_unfiltered[l]);
+                        string fullFileName_ref = Path.GetFullPath(reffiles_unfiltered[l]);
+
+                        string folder_ref = Path.GetDirectoryName(fullFileName_ref);
+                        string baseFileNameNoExt_ref = Path.GetFileNameWithoutExtension(fullFileName_ref);
+                        string extension_ref = Path.GetExtension(fullFileName_ref);
+
+                        bool is_corresponding_file = baseFileNameNoExt_ref == corresponding_basename;
+
+                        if (is_corresponding_file)
+                        {
+                            tmpBatchTriple.testFile = fullFileName;
+                            tmpBatchTriple.refFile = fullFileName_ref;
+                            tmpBatchTriple.LUTFile = target_cubename;
+                            batchTriples.Add(tmpBatchTriple);
+                        }
+                    }
+
                 }
+            }
+
+
+
+
+
+            BatchProgress progressBox = new BatchProgress();
+            progressBox.Show();
+
+
+            Parallel.ForEach(batchTriples, (currentTriple,state,index) => {
+
+                Task ColorMatchTask;
+                Bitmap testImage = (Bitmap)Bitmap.FromFile(currentTriple.testFile);
+                Bitmap referenceImage = (Bitmap)Bitmap.FromFile(currentTriple.refFile);
+
+                var progress = new Progress<MatchReport>(update =>
+                {
+                    progressBox.AddOrUpdateProgressItem((int)index,update.message);
+                    //setStatus(update.message, update.error);
+                    if (update.cube != null)
+                    {
+                        MakeLUT(update.cube, currentTriple.LUTFile);
+                        //globalCube = update.cube;
+                    }
+
+                });
+                ColorMatchTask = Task.Run(() => DoColorMatch_Worker(progress, testImage, referenceImage, aggregateWhat));
 
             });
-            ColorMatchTask = Task.Run(() => DoColorMatch_Worker(progress,testImage,referenceImage,aggregateWhat));
+
+
+
             setStatus("Started...");
         }
 
@@ -1307,7 +1379,7 @@ namespace ColorMatch3D
         private void BtnMakeLUT_Click(object sender, win.RoutedEventArgs e)
         {
             
-            if(cube == null)
+            if(globalCube == null)
             {
                 setStatus("no LUT was generated yet.",true);
                 return;
@@ -1316,40 +1388,48 @@ namespace ColorMatch3D
             SaveFileDialog sfd = new SaveFileDialog();
             sfd.Filter = "CUBE 3D LUT (.cube)|*.cube";
             
+
+            //sfd.FileName = ;
+            if (sfd.ShowDialog() == true)
+            {
+                MakeLUT(globalCube, sfd.FileName);
+            }
+        }
+
+        private void MakeLUT(FloatColor[,,] cube,string outputFileName)
+        {
+
+
             int steps = outputValueCount - 1;
             float stepSize = 255 / steps;
 
             float red, green, blue;
 
-            //sfd.FileName = ;
-            if (sfd.ShowDialog() == true)
+            //string luttext = "LUT_3D_SIZE "+ outputValueCount + "\n";
+
+            int floatStringLength = ((float)Math.PI).ToString().Length;
+
+            StringBuilder sb = new StringBuilder("LUT_3D_SIZE " + outputValueCount + "\n", cube.Length * (floatStringLength + 1));
+
+            for (int b = 0; b < outputValueCount; b++)
             {
-                //string luttext = "LUT_3D_SIZE "+ outputValueCount + "\n";
-
-                int floatStringLength = ((float)Math.PI).ToString().Length;
-
-                StringBuilder sb = new StringBuilder("LUT_3D_SIZE " + outputValueCount + "\n", cube.Length* (floatStringLength+1));
-
-                for (int b = 0; b < outputValueCount; b++)
+                for (int g = 0; g < outputValueCount; g++)
                 {
-                    for (int g = 0; g < outputValueCount; g++)
+                    for (int r = 0; r < outputValueCount; r++)
                     {
-                        for (int r = 0; r < outputValueCount; r++)
-                        {
-                            /*red = float.IsNaN(cube[r, g, b][R]) ? r*stepSize/255 : cube[r, g, b][R]/255;
-                            green = float.IsNaN(cube[r, g, b][G]) ? g * stepSize/255 : cube[r, g, b][G]/255;
-                            blue = float.IsNaN(cube[r, g, b][B]) ? b * stepSize/255 : cube[r, g, b][B]/255;*/
-                            red = float.IsNaN(cube[r, g, b].color.X) ? 0 : cube[r, g, b].color.X/255;
-                            green = float.IsNaN(cube[r, g, b].color.Y) ?0 : cube[r, g, b].color.Y/255;
-                            blue = float.IsNaN(cube[r, g, b].color.Z) ? 0 : cube[r, g, b].color.Z/255;
-                            //luttext += red.ToString(CultureInfo.InvariantCulture) + " " + green.ToString(CultureInfo.InvariantCulture) + " " + blue.ToString(CultureInfo.InvariantCulture) + "\n";
-                            sb.Append( red.ToString(CultureInfo.InvariantCulture) + " " + green.ToString(CultureInfo.InvariantCulture) + " " + blue.ToString(CultureInfo.InvariantCulture) + "\n");
-                        }
+                        /*red = float.IsNaN(cube[r, g, b][R]) ? r*stepSize/255 : cube[r, g, b][R]/255;
+                        green = float.IsNaN(cube[r, g, b][G]) ? g * stepSize/255 : cube[r, g, b][G]/255;
+                        blue = float.IsNaN(cube[r, g, b][B]) ? b * stepSize/255 : cube[r, g, b][B]/255;*/
+                        red = float.IsNaN(cube[r, g, b].color.X) ? 0 : cube[r, g, b].color.X / 255;
+                        green = float.IsNaN(cube[r, g, b].color.Y) ? 0 : cube[r, g, b].color.Y / 255;
+                        blue = float.IsNaN(cube[r, g, b].color.Z) ? 0 : cube[r, g, b].color.Z / 255;
+                        //luttext += red.ToString(CultureInfo.InvariantCulture) + " " + green.ToString(CultureInfo.InvariantCulture) + " " + blue.ToString(CultureInfo.InvariantCulture) + "\n";
+                        sb.Append(red.ToString(CultureInfo.InvariantCulture) + " " + green.ToString(CultureInfo.InvariantCulture) + " " + blue.ToString(CultureInfo.InvariantCulture) + "\n");
                     }
                 }
-
-                File.WriteAllText(sfd.FileName, sb.ToString());
             }
+
+            File.WriteAllText(outputFileName, sb.ToString());
         }
 
         private void AggrVariable_radio_Checked(object sender, win.RoutedEventArgs e)
