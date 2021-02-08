@@ -342,6 +342,12 @@ namespace ColorMatch3D
             progressBox.Show();
 
 
+            for(int i = 0; i < batchTriples.Count; i++)
+            {
+                progressBox.AddOrUpdateProgressItem(i); // This isn't necessary but it makes sure that the order of the items in the batch progress is correct
+            }
+
+
             Parallel.ForEach(batchTriples, (currentTriple,state,index) => {
 
                 Task ColorMatchTask;
@@ -1407,6 +1413,8 @@ namespace ColorMatch3D
 
             //string luttext = "LUT_3D_SIZE "+ outputValueCount + "\n";
 
+            string numberFormat = "0." + (new string('#', 339));
+
             int floatStringLength = ((float)Math.PI).ToString().Length;
 
             StringBuilder sb = new StringBuilder("LUT_3D_SIZE " + outputValueCount + "\n", cube.Length * (floatStringLength + 1));
@@ -1424,7 +1432,7 @@ namespace ColorMatch3D
                         green = float.IsNaN(cube[r, g, b].color.Y) ? 0 : cube[r, g, b].color.Y / 255;
                         blue = float.IsNaN(cube[r, g, b].color.Z) ? 0 : cube[r, g, b].color.Z / 255;
                         //luttext += red.ToString(CultureInfo.InvariantCulture) + " " + green.ToString(CultureInfo.InvariantCulture) + " " + blue.ToString(CultureInfo.InvariantCulture) + "\n";
-                        sb.Append(red.ToString(CultureInfo.InvariantCulture) + " " + green.ToString(CultureInfo.InvariantCulture) + " " + blue.ToString(CultureInfo.InvariantCulture) + "\n");
+                        sb.Append(red.ToString(numberFormat, CultureInfo.InvariantCulture).TrimEnd('0') + " " + green.ToString(numberFormat, CultureInfo.InvariantCulture).TrimEnd('0') + " " + blue.ToString(numberFormat, CultureInfo.InvariantCulture).TrimEnd('0') + "\n");
                     }
                 }
             }

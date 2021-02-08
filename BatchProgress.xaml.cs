@@ -36,6 +36,7 @@ namespace ColorMatch3D
             this.DataContext = this;
         }
 
+
         public void AddOrUpdateProgressItem(int id, string message="...")
         {
 
